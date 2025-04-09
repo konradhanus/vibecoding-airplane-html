@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game – śmigło grube</title>
+<title>3D Flying Game z kolizją samolotu</title>
 <style>
 body {margin:0; overflow:hidden;}
 canvas {display:block;}
@@ -12,9 +12,11 @@ canvas {display:block;}
 <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 <script>
 let scene, camera, renderer;
-let plane;
-let propellerGroup;
+let plane, propellerGroup;
 let keys = {};
+let bullets = [];
+let buildings = [];
+const buildingHits = new Map();
 
 const MAX_ROLL = Math.PI/5;
 const ROLL_SPEED = 0.05;
@@ -46,15 +48,19 @@ function init() {
   ground.position.y = 0;
   scene.add(ground);
 
+  // Budynki
   for(let i=0;i<200;i++){
     const w = Math.random()*10+10;
     const d = Math.random()*10+10;
     const h = Math.random()*100+50;
     const geo = new THREE.BoxGeometry(w,h,d);
     const mat = new THREE.MeshPhongMaterial({color:0x444444});
-    const bld = new THREE.Mesh(geo,mat);
-    bld.position.set((Math.random()-0.5)*2000,h/2,(Math.random()-0.5)*2000);
-    scene.add(bld);
+    const building = new THREE.Mesh(geo,mat);
+    building.position.set((Math.random()-0.5)*2000,h/2,(Math.random()-0.5)*2000);
+    building.userData.radius = Math.max(w,h,d)/2;  // promień kolizji
+    scene.add(building);
+    buildings.push(building);
+    buildingHits.set(building,0);
   }
 
   plane = new THREE.Group();
@@ -73,24 +79,29 @@ function init() {
   rightWing.position.set(5,0,0);
   plane.add(rightWing);
 
-  //---------------------------------
-  // ŚMIGŁO z GRUBYMI łopatami
-  //---------------------------------
+  // Karabiny
+  const gunMat = new THREE.MeshPhongMaterial({color:0x000000});
+  const gunGeo = new THREE.CylinderGeometry(0.2,0.2,3,16);
+  const gunLeft = new THREE.Mesh(gunGeo, gunMat);
+  gunLeft.rotation.x = Math.PI/2;
+  gunLeft.position.set(-5, -0.3, 1.5);
+  plane.add(gunLeft);
+  const gunRight = new THREE.Mesh(gunGeo, gunMat);
+  gunRight.rotation.x = Math.PI/2;
+  gunRight.position.set(5, -0.3, 1.5);
+  plane.add(gunRight);
+
+  // Śmigło
   propellerGroup = new THREE.Group();
   propellerGroup.position.z = 3;
-  
-  // Grubsze łopaty
-  const bladeGeo = new THREE.BoxGeometry(0.5, 3, 0.3);  // <----- zmienione tu
+  const bladeGeo = new THREE.BoxGeometry(0.5,3,0.3);
   const bladeMat = new THREE.MeshPhongMaterial({color:0x222222});
-  
   const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
   blade1.position.y = 1.5;
   propellerGroup.add(blade1);
-  
   const blade2 = blade1.clone();
   blade2.position.y = -1.5;
   propellerGroup.add(blade2);
-  
   plane.add(propellerGroup);
 
   plane.position.y = 50;
@@ -99,7 +110,10 @@ function init() {
   camera.lookAt(plane.position);
 
   window.addEventListener('resize', onWindowResize);
-  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if(e.key === ' ') fireGuns();
+  });
   window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 }
 
@@ -107,6 +121,24 @@ function onWindowResize(){
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function fireGuns(){
+  const gunOffsets = [
+    new THREE.Vector3(-5, -0.3, 3),
+    new THREE.Vector3(5, -0.3, 3)
+  ];
+  gunOffsets.forEach(offset => {
+    const globalPos = offset.clone().applyMatrix4(plane.matrixWorld);
+    const bulletGeo = new THREE.SphereGeometry(0.3,8,8);
+    const bulletMat = new THREE.MeshPhongMaterial({color:0xffff00, emissive:0xffff00});
+    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+    bullet.position.copy(globalPos);
+    scene.add(bullet);
+
+    const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize();
+    bullets.push({mesh: bullet, velocity: dir.multiplyScalar(10)});
+  });
 }
 
 function animate(){
@@ -130,11 +162,50 @@ function animate(){
 
   plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED;
 
-  // obracamy śmigło wokół osi Z kadłuba
   propellerGroup.rotation.z += 1;
 
   const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(dir.multiplyScalar(speed*1.5));
+
+  // Odbicie samolotu od budynków
+  buildings.forEach(building => {
+    if(!building.parent) return; // jeśli zniszczone to pomijamy
+
+    const radius = building.userData.radius + 3; // + promień własny samolotu, np. 3
+    const dist = plane.position.distanceTo(building.position);
+
+    if(dist < radius){
+      const away = plane.position.clone().sub(building.position).normalize();
+      // Przesuwamy maszynę poza granicę kolizji
+      plane.position.copy(away.multiplyScalar(radius + 0.1).add(building.position));
+    }
+  });
+
+  // Pociski i kolizje z budynkami
+  bullets.forEach((bulletObj, index) => {
+    const bullet = bulletObj.mesh;
+    bullet.position.add(bulletObj.velocity);
+
+    for(let building of buildings){
+      if(!building.parent) continue;
+      const dist = bullet.position.distanceTo(building.position);
+      if(dist < building.userData.radius){
+        buildingHits.set(building, (buildingHits.get(building) || 0) +1);
+        scene.remove(bullet);
+        bullets.splice(index,1);
+        if(buildingHits.get(building)>=2){
+          scene.remove(building);
+        }
+        break;
+      }
+    }
+
+    // Usuwanie pocisków poza planszą
+    if(bullet.position.length() > 3000){
+      scene.remove(bullet);
+      bullets.splice(index,1);
+    }
+  });
 
   const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
   camera.position.copy(plane.position).add(camOffset);
@@ -142,6 +213,7 @@ function animate(){
 
   renderer.render(scene, camera);
 }
+
 </script>
 </body>
 </html>
