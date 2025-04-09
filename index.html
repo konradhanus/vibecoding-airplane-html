@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game with Skyscrapers</title>
+<title>3D Flying Game with Skyscrapers and Wings</title>
 <style>
   body { margin: 0; overflow: hidden; }
   canvas { display: block; }
@@ -36,7 +36,7 @@ function init() {
   dirLight.position.set(100, 100, -50);
   scene.add(dirLight);
 
-  // Floor/ground - optional
+  // Ground
   const groundGeo = new THREE.PlaneGeometry(2000, 2000);
   const groundMat = new THREE.MeshPhongMaterial({ color: 0x228822 });
   const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -44,35 +44,51 @@ function init() {
   ground.position.y = 0;
   scene.add(ground);
 
-  // Create skyscrapers
-  for(let i = 0; i < 200; i++){
-    const width = Math.random()*10 + 10;
-    const depth = Math.random()*10 + 10;
-    const height = Math.random()*100 + 50;
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-    const material = new THREE.MeshPhongMaterial({ color: 0x444444 });
-    const building = new THREE.Mesh(geometry, material);
-    building.position.x = (Math.random()-0.5)*2000;
-    building.position.z = (Math.random()-0.5)*2000;
-    building.position.y = height/2;
-    scene.add(building);
+  // Skyscrapers
+  for(let i=0; i<200; i++){
+    const w = Math.random()*10 + 10;
+    const d = Math.random()*10 + 10;
+    const h = Math.random()*100 + 50;
+    const geo = new THREE.BoxGeometry(w,h,d);
+    const mat = new THREE.MeshPhongMaterial({ color: 0x444444 });
+    const bldg = new THREE.Mesh(geo, mat);
+    bldg.position.set((Math.random()-0.5)*2000, h/2, (Math.random()-0.5)*2000);
+    scene.add(bldg);
   }
 
-  // Create airplane (simple cube)
-  const planeGeo = new THREE.BoxGeometry(2, 1, 4);
-  const planeMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-  plane = new THREE.Mesh(planeGeo, planeMat);
+  // --- Airplane as group with wings ---
+  plane = new THREE.Group();
+
+  // Fuselage (body)
+  const fuselageGeo = new THREE.BoxGeometry(2,1,4);
+  const fuselageMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+  const fuselage = new THREE.Mesh(fuselageGeo, fuselageMat);
+  plane.add(fuselage);
+
+  // Wings
+  const wingGeo = new THREE.BoxGeometry(8, 0.2, 1.5);
+  const wingMat = new THREE.MeshPhongMaterial({ color: 0x888888 });
+
+  const leftWing = new THREE.Mesh(wingGeo, wingMat);
+  leftWing.position.set(-5, 0, 0);
+  plane.add(leftWing);
+
+  const rightWing = new THREE.Mesh(wingGeo, wingMat);
+  rightWing.position.set(5, 0, 0);
+  plane.add(rightWing);
+
   plane.position.y = 50;
   scene.add(plane);
   camera.lookAt(plane.position);
 
+  // Events
   window.addEventListener('resize', onWindowResize);
-  window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-  window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 }
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
@@ -80,7 +96,6 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame(animate);
 
-  // Movement variables
   let speed = 1;
   let turnSpeed = 0.03;
 
@@ -89,12 +104,11 @@ function animate() {
   if(keys['arrowleft'] || keys['a']) plane.rotation.y += turnSpeed;
   if(keys['arrowright'] || keys['d']) plane.rotation.y -= turnSpeed;
 
-  // Always move plane forward
   const direction = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(direction.multiplyScalar(speed * 1.5));
 
   // Camera follows plane
-  const camOffset = new THREE.Vector3(0, 5, -20).applyQuaternion(plane.quaternion);
+  const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
   camera.position.copy(plane.position).add(camOffset);
   camera.lookAt(plane.position);
 
