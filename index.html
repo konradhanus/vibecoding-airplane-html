@@ -25,6 +25,8 @@ let keys = {};
 let bullets = [];
 let buildings = [];
 const buildingHits = new Map();
+let propellerSpeed = 1;
+let forwardSpeed = 1.5;
 let score = 0;
 const scoreDiv = document.getElementById('score');
 
@@ -158,11 +160,23 @@ function animate(){
   if(left) targetRoll=-Math.PI/5;
   if(right)targetRoll= Math.PI/5;
 
-  plane.rotation.z += (targetRoll-plane.rotation.z)*ROLL_SPEED;
-  propellerGroup.rotation.z +=1;
+plane.rotation.z += (targetRoll-plane.rotation.z)*ROLL_SPEED;
 
-  const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
-  plane.position.add(dir.multiplyScalar(speed*1.5));
+// Slow down or speed up propeller based on altitude
+if(plane.position.y <= 3){
+  propellerSpeed *= 0.95;
+  if(propellerSpeed < 0.01) propellerSpeed = 0;
+
+  forwardSpeed *= 0.95;
+  if(forwardSpeed < 0.01) forwardSpeed = 0;
+} else {
+  propellerSpeed = 1;
+  forwardSpeed = 1.5;
+}
+propellerGroup.rotation.z += propellerSpeed;
+
+const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
+plane.position.add(dir.multiplyScalar(speed * forwardSpeed));
 
   // Przesuwanie kafelków by wyglądało jak infinite world
   const cx = Math.round(plane.position.x/TILE_SIZE)*TILE_SIZE;
@@ -208,11 +222,13 @@ function animate(){
     }
   });
 
-  const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
-  camera.position.copy(plane.position).add(camOffset);
-  camera.lookAt(plane.position);
+if(plane.position.y < 0) plane.position.y = 0;
 
-  renderer.render(scene,camera);
+const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
+camera.position.copy(plane.position).add(camOffset);
+camera.lookAt(plane.position);
+
+renderer.render(scene,camera);
 }
 </script>
 </body>
