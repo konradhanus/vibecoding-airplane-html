@@ -2,13 +2,26 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game z kolizją samolotu</title>
+<title>3D gra z punktami</title>
 <style>
 body {margin:0; overflow:hidden;}
 canvas {display:block;}
+#score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  font-family: sans-serif;
+  font-size: 24px;
+  z-index: 1;
+  background: rgba(0,0,0,0.5);
+  padding: 5px 10px;
+  border-radius: 5px;
+}
 </style>
 </head>
 <body>
+<div id="score">Score: 0</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 <script>
 let scene, camera, renderer;
@@ -17,6 +30,9 @@ let keys = {};
 let bullets = [];
 let buildings = [];
 const buildingHits = new Map();
+
+let score = 0;
+const scoreDiv = document.getElementById('score');
 
 const MAX_ROLL = Math.PI/5;
 const ROLL_SPEED = 0.05;
@@ -48,7 +64,6 @@ function init() {
   ground.position.y = 0;
   scene.add(ground);
 
-  // Budynki
   for(let i=0;i<200;i++){
     const w = Math.random()*10+10;
     const d = Math.random()*10+10;
@@ -57,7 +72,7 @@ function init() {
     const mat = new THREE.MeshPhongMaterial({color:0x444444});
     const building = new THREE.Mesh(geo,mat);
     building.position.set((Math.random()-0.5)*2000,h/2,(Math.random()-0.5)*2000);
-    building.userData.radius = Math.max(w,h,d)/2;  // promień kolizji
+    building.userData.radius = Math.max(w,h,d)/2;
     scene.add(building);
     buildings.push(building);
     buildingHits.set(building,0);
@@ -79,7 +94,6 @@ function init() {
   rightWing.position.set(5,0,0);
   plane.add(rightWing);
 
-  // Karabiny
   const gunMat = new THREE.MeshPhongMaterial({color:0x000000});
   const gunGeo = new THREE.CylinderGeometry(0.2,0.2,3,16);
   const gunLeft = new THREE.Mesh(gunGeo, gunMat);
@@ -91,7 +105,6 @@ function init() {
   gunRight.position.set(5, -0.3, 1.5);
   plane.add(gunRight);
 
-  // Śmigło
   propellerGroup = new THREE.Group();
   propellerGroup.position.z = 3;
   const bladeGeo = new THREE.BoxGeometry(0.5,3,0.3);
@@ -169,19 +182,16 @@ function animate(){
 
   // Odbicie samolotu od budynków
   buildings.forEach(building => {
-    if(!building.parent) return; // jeśli zniszczone to pomijamy
-
-    const radius = building.userData.radius + 3; // + promień własny samolotu, np. 3
+    if(!building.parent) return;
+    const radius = building.userData.radius + 3;
     const dist = plane.position.distanceTo(building.position);
-
     if(dist < radius){
       const away = plane.position.clone().sub(building.position).normalize();
-      // Przesuwamy maszynę poza granicę kolizji
       plane.position.copy(away.multiplyScalar(radius + 0.1).add(building.position));
     }
   });
 
-  // Pociski i kolizje z budynkami
+  // Ruch pocisków i kolizje
   bullets.forEach((bulletObj, index) => {
     const bullet = bulletObj.mesh;
     bullet.position.add(bulletObj.velocity);
@@ -195,12 +205,12 @@ function animate(){
         bullets.splice(index,1);
         if(buildingHits.get(building)>=2){
           scene.remove(building);
+          score += 100;
+          scoreDiv.innerText = 'Score: ' + score;
         }
         break;
       }
     }
-
-    // Usuwanie pocisków poza planszą
     if(bullet.position.length() > 3000){
       scene.remove(bullet);
       bullets.splice(index,1);
