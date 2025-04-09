@@ -2,10 +2,10 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game - śmigło poprawiona oś obrotu</title>
+<title>3D Flying Game – śmigło obracane wokół osi kadłuba</title>
 <style>
-  body {margin:0; overflow:hidden;}
-  canvas {display:block;}
+body {margin:0; overflow:hidden;}
+canvas {display:block;}
 </style>
 </head>
 <body>
@@ -13,7 +13,7 @@
 <script>
 let scene, camera, renderer;
 let plane;
-let propeller;
+let propellerGroup;
 let keys = {};
 
 const MAX_ROLL = Math.PI/5;
@@ -57,6 +57,7 @@ function init() {
     scene.add(bld);
   }
 
+  // SAMOLOT
   plane = new THREE.Group();
 
   const fuselageGeo = new THREE.BoxGeometry(2,1,4);
@@ -75,13 +76,26 @@ function init() {
   rightWing.position.set(5, 0, 0);
   plane.add(rightWing);
 
-  // --- poprawione śmigło: dysk, poprawna orientacja ---
-  const propGeo = new THREE.CircleGeometry(3, 32);
-  const propMat = new THREE.MeshPhongMaterial({color:0x222222, side: THREE.DoubleSide});
-  propeller = new THREE.Mesh(propGeo, propMat);
-  propeller.rotation.x = Math.PI/2;   // ustaw poziomo, by kręcić wokół Y
-  propeller.position.z = 3;           // z tyłu samolotu
-  plane.add(propeller);
+  //---------------------------------
+  // ŚMIGŁO - obrót wokół osi Z !!!
+  //---------------------------------
+  propellerGroup = new THREE.Group();
+  propellerGroup.position.z = 3;   // z tyłu samolotu
+  // nie potrzeba żadnych obrotów, oś Z grupy jest wzdłuż osi kadłuba
+
+  const bladeGeo = new THREE.BoxGeometry(0.2, 3, 0.1);
+  const bladeMat = new THREE.MeshPhongMaterial({color:0x222222});
+
+  const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
+  blade1.position.y = 1.5;   // połowa długości łopaty „do góry”
+  propellerGroup.add(blade1);
+
+  // druga łopata w przeciwną stronę
+  const blade2 = blade1.clone();
+  blade2.position.y = -1.5;
+  propellerGroup.add(blade2);
+
+  plane.add(propellerGroup);
 
   plane.position.y = 50;
   scene.add(plane);
@@ -118,21 +132,20 @@ function animate(){
   if(left)  targetRoll = -MAX_ROLL;
   if(right) targetRoll = MAX_ROLL;
 
-  plane.rotation.z += (targetRoll - plane.rotation.z)*ROLL_SPEED;
+  plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED;
 
-  // -- poprawny obrót śmigła wokół lokalnej osi Y --
-  propeller.rotation.y += 1;          // <-- kluczowa zmiana
+  // ---- śmigło kręci się wokół osi Z samolotu -----
+  propellerGroup.rotation.z += 1;
 
-  // ruch do przodu
+  // ruch samolotu do przodu
   const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(dir.multiplyScalar(speed*1.5));
 
-  // kamera
   const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
   camera.position.copy(plane.position).add(camOffset);
   camera.lookAt(plane.position);
 
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 </script>
 </body>
