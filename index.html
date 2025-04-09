@@ -2,6 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Nieskończona plansza z samolotem i punktami</title>
 <style>
 body {margin:0; overflow:hidden;}
@@ -17,7 +18,8 @@ canvas {display:block;}
 #fireButton {
   position: fixed;
   bottom: 20px;
-  left: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -28,8 +30,25 @@ canvas {display:block;}
   z-index: 2;
   display: none;
 }
+#fireLabel {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: red;
+  color: white;
+  font-family: sans-serif;
+  font-size: 24px;
+  padding: 5px 10px;
+  border-radius: 5px 5px 0 0;
+  z-index: 3;
+  display: none;
+}
 @media (max-width: 768px) {
   #fireButton {
+    display: block;
+  }
+  #fireLabel {
     display: block;
   }
 }
@@ -37,9 +56,20 @@ canvas {display:block;}
 </head>
 <body>
 <div id="score">Score: 0</div>
-<button id="fireButton">Fire</button>
+<button id="fireButton">FIRE</button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 <script>
+const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if(hasTouch){
+    console.log("Touch device detected");
+    document.getElementById('fireButton').style.display = 'block';
+    // Removed fireLabel display control since it's deleted
+} else {
+    console.log("No touch support detected");
+    document.getElementById('fireButton').style.display = 'none';
+    // Removed fireLabel display control since it's deleted
+}
+
 let scene, camera, renderer;
 let plane, propellerGroup;
 let keys = {};
