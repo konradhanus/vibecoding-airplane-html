@@ -1,22 +1,17 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8" />
-<title>3D gra z punktami</title>
+<meta charset="UTF-8" />
+<title>Nieskończona plansza z samolotem i punktami</title>
 <style>
 body {margin:0; overflow:hidden;}
 canvas {display:block;}
 #score {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-  font-family: sans-serif;
-  font-size: 24px;
-  z-index: 1;
-  background: rgba(0,0,0,0.5);
-  padding: 5px 10px;
-  border-radius: 5px;
+  position:absolute;
+  top:10px;left:10px;
+  color:white; font-family:sans-serif; font-size:24px;
+  background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px;
+  z-index:1;
 }
 </style>
 </head>
@@ -30,17 +25,18 @@ let keys = {};
 let bullets = [];
 let buildings = [];
 const buildingHits = new Map();
-
 let score = 0;
 const scoreDiv = document.getElementById('score');
 
-const MAX_ROLL = Math.PI/5;
-const ROLL_SPEED = 0.05;
+const TILE_SIZE = 1000;       // jeden "kafelek" gruntu
+const tiles = [];             // siatka 3×3, łącznie 9 kafelków
+
+const ROLL_SPEED = 0.05;      // poprawka – deklaracja by nie było błędu!
 
 init();
 animate();
 
-function init() {
+function init(){
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb);
 
@@ -51,101 +47,92 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-  dirLight.position.set(100,100,-50);
-  scene.add(dirLight);
+  scene.add(new THREE.AmbientLight(0xffffff,0.7));
+  const dl = new THREE.DirectionalLight(0xffffff,0.6);
+  dl.position.set(100,100,-50);
+  scene.add(dl);
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(2000,2000),
-    new THREE.MeshPhongMaterial({color:0x228822})
-  );
-  ground.rotation.x = -Math.PI/2;
-  ground.position.y = 0;
-  scene.add(ground);
+  // Tworzenie 9 kafelków
+  for(let dx=-1; dx<=1; dx++){
+    for(let dz=-1; dz<=1; dz++){
+      const tile = new THREE.Mesh(
+        new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),
+        new THREE.MeshPhongMaterial({color:0x228822})
+      );
+      tile.rotation.x = -Math.PI/2;
+      tile.position.set(dx*TILE_SIZE,0,dz*TILE_SIZE);
+      scene.add(tile);
+      tiles.push(tile);
+    }
+  }
 
+  // Budynki, ustawione w centralnym kafelku
   for(let i=0;i<200;i++){
     const w = Math.random()*10+10;
     const d = Math.random()*10+10;
     const h = Math.random()*100+50;
     const geo = new THREE.BoxGeometry(w,h,d);
     const mat = new THREE.MeshPhongMaterial({color:0x444444});
-    const building = new THREE.Mesh(geo,mat);
-    building.position.set((Math.random()-0.5)*2000,h/2,(Math.random()-0.5)*2000);
+    const building = new THREE.Mesh(geo, mat);
+    building.position.set((Math.random()-0.5)*TILE_SIZE, h/2, (Math.random()-0.5)*TILE_SIZE);
     building.userData.radius = Math.max(w,h,d)/2;
-    scene.add(building);
     buildings.push(building);
-    buildingHits.set(building,0);
+    scene.add(building);
+    buildingHits.set(building, 0);
   }
 
+  // Samolot: grupa
   plane = new THREE.Group();
 
   const fuselageGeo = new THREE.BoxGeometry(2,1,4);
   const fuselageMat = new THREE.MeshPhongMaterial({color:0xff0000});
-  const fuselage = new THREE.Mesh(fuselageGeo,fuselageMat);
+  const fuselage = new THREE.Mesh(fuselageGeo, fuselageMat);
   plane.add(fuselage);
 
   const wingGeo = new THREE.BoxGeometry(8,0.2,1.5);
   const wingMat = new THREE.MeshPhongMaterial({color:0x888888});
-  const leftWing = new THREE.Mesh(wingGeo,wingMat);
-  leftWing.position.set(-5,0,0);
-  plane.add(leftWing);
-  const rightWing = new THREE.Mesh(wingGeo,wingMat);
-  rightWing.position.set(5,0,0);
-  plane.add(rightWing);
+  const lw = new THREE.Mesh(wingGeo, wingMat); lw.position.set(-5,0,0); plane.add(lw);
+  const rw = new THREE.Mesh(wingGeo, wingMat); rw.position.set(5,0,0);  plane.add(rw);
 
   const gunMat = new THREE.MeshPhongMaterial({color:0x000000});
-  const gunGeo = new THREE.CylinderGeometry(0.2,0.2,3,16);
-  const gunLeft = new THREE.Mesh(gunGeo, gunMat);
-  gunLeft.rotation.x = Math.PI/2;
-  gunLeft.position.set(-5, -0.3, 1.5);
-  plane.add(gunLeft);
-  const gunRight = new THREE.Mesh(gunGeo, gunMat);
-  gunRight.rotation.x = Math.PI/2;
-  gunRight.position.set(5, -0.3, 1.5);
-  plane.add(gunRight);
+  const gunGeo = new THREE.CylinderGeometry(0.2, 0.2, 3, 16);
+  const gunL = new THREE.Mesh(gunGeo, gunMat);
+  gunL.rotation.x = Math.PI/2; gunL.position.set(-5,-0.3,1.5); plane.add(gunL);
+  const gunR = new THREE.Mesh(gunGeo, gunMat);
+  gunR.rotation.x = Math.PI/2; gunR.position.set(5,-0.3,1.5); plane.add(gunR);
 
   propellerGroup = new THREE.Group();
-  propellerGroup.position.z = 3;
-  const bladeGeo = new THREE.BoxGeometry(0.5,3,0.3);
+  propellerGroup.position.z=3;
   const bladeMat = new THREE.MeshPhongMaterial({color:0x222222});
-  const blade1 = new THREE.Mesh(bladeGeo, bladeMat);
-  blade1.position.y = 1.5;
-  propellerGroup.add(blade1);
-  const blade2 = blade1.clone();
-  blade2.position.y = -1.5;
-  propellerGroup.add(blade2);
+  const bladeGeo = new THREE.BoxGeometry(0.5,3,0.3);
+  const b1 = new THREE.Mesh(bladeGeo, bladeMat); b1.position.y=1.5; propellerGroup.add(b1);
+  const b2 = b1.clone(); b2.position.y=-1.5; propellerGroup.add(b2);
   plane.add(propellerGroup);
 
-  plane.position.y = 50;
+  plane.position.y=50;
+
   scene.add(plane);
 
-  camera.lookAt(plane.position);
-
-  window.addEventListener('resize', onWindowResize);
-  window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
-    if(e.key === ' ') fireGuns();
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
   });
-  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-}
 
-function onWindowResize(){
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  window.addEventListener('keydown', e=>{
+    keys[e.key.toLowerCase()]=true;
+    if(e.key===' ') fireGuns();
+  });
+  window.addEventListener('keyup', e=> keys[e.key.toLowerCase()]=false);
 }
 
 function fireGuns(){
-  const gunOffsets = [
-    new THREE.Vector3(-5, -0.3, 3),
-    new THREE.Vector3(5, -0.3, 3)
-  ];
-  gunOffsets.forEach(offset => {
-    const globalPos = offset.clone().applyMatrix4(plane.matrixWorld);
-    const bulletGeo = new THREE.SphereGeometry(0.3,8,8);
-    const bulletMat = new THREE.MeshPhongMaterial({color:0xffff00, emissive:0xffff00});
-    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+  const offs = [new THREE.Vector3(-5,-0.3,3), new THREE.Vector3(5,-0.3,3)];
+  offs.forEach(o=>{
+    const globalPos = o.clone().applyMatrix4(plane.matrixWorld);
+    const geo = new THREE.SphereGeometry(0.3,8,8);
+    const mat = new THREE.MeshPhongMaterial({color:0xffff00, emissive:0xffff00});
+    const bullet = new THREE.Mesh(geo,mat);
     bullet.position.copy(globalPos);
     scene.add(bullet);
 
@@ -157,63 +144,67 @@ function fireGuns(){
 function animate(){
   requestAnimationFrame(animate);
 
-  let speed = 1;
-  let turnSpeed = 0.03;
-
-  if(keys['arrowup'] || keys['w']) plane.position.y += speed;
-  if(keys['arrowdown'] || keys['s']) plane.position.y -= speed;
-
-  let left = keys['arrowleft'] || keys['a'];
-  let right = keys['arrowright'] || keys['d'];
+  const speed=1;
+  const turnSpeed = 0.03;
+  if(keys['arrowup']||keys['w']) plane.position.y += speed;
+  if(keys['arrowdown']||keys['s']) plane.position.y -= speed;
+  const left=keys['arrowleft']||keys['a'];
+  const right=keys['arrowright']||keys['d'];
 
   if(left) plane.rotation.y += turnSpeed;
-  if(right) plane.rotation.y -= turnSpeed;
+  if(right)plane.rotation.y -= turnSpeed;
 
-  let targetRoll = 0;
-  if(left)  targetRoll = -MAX_ROLL;
-  if(right) targetRoll = MAX_ROLL;
+  let targetRoll=0;
+  if(left) targetRoll=-Math.PI/5;
+  if(right)targetRoll= Math.PI/5;
 
-  plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED;
-
-  propellerGroup.rotation.z += 1;
+  plane.rotation.z += (targetRoll-plane.rotation.z)*ROLL_SPEED;
+  propellerGroup.rotation.z +=1;
 
   const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(dir.multiplyScalar(speed*1.5));
 
-  // Odbicie samolotu od budynków
-  buildings.forEach(building => {
-    if(!building.parent) return;
-    const radius = building.userData.radius + 3;
-    const dist = plane.position.distanceTo(building.position);
-    if(dist < radius){
-      const away = plane.position.clone().sub(building.position).normalize();
-      plane.position.copy(away.multiplyScalar(radius + 0.1).add(building.position));
+  // Przesuwanie kafelków by wyglądało jak infinite world
+  const cx = Math.round(plane.position.x/TILE_SIZE)*TILE_SIZE;
+  const cz = Math.round(plane.position.z/TILE_SIZE)*TILE_SIZE;
+  let idx=0;
+  for(let dx=-1; dx<=1; dx++){
+    for(let dz=-1; dz<=1; dz++){
+      tiles[idx].position.x = cx+dx*TILE_SIZE;
+      tiles[idx].position.z = cz+dz*TILE_SIZE;
+      idx++;
     }
-  });
+  }
 
-  // Ruch pocisków i kolizje
-  bullets.forEach((bulletObj, index) => {
-    const bullet = bulletObj.mesh;
-    bullet.position.add(bulletObj.velocity);
+  // Odbicia samolotu od budynków
+  for(const b of buildings){
+    if(!b.parent) continue;
+    const d = plane.position.distanceTo(b.position);
+    const r = b.userData.radius + 3;
+    if(d<r){
+      const away = plane.position.clone().sub(b.position).normalize();
+      plane.position.copy(away.multiplyScalar(r+0.1).add(b.position));
+    }
+  }
 
-    for(let building of buildings){
-      if(!building.parent) continue;
-      const dist = bullet.position.distanceTo(building.position);
-      if(dist < building.userData.radius){
-        buildingHits.set(building, (buildingHits.get(building) || 0) +1);
-        scene.remove(bullet);
-        bullets.splice(index,1);
-        if(buildingHits.get(building)>=2){
-          scene.remove(building);
-          score += 100;
-          scoreDiv.innerText = 'Score: ' + score;
+  // Pociski i kolizje
+  bullets.forEach((p,i)=>{
+    p.mesh.position.add(p.velocity);
+    for(const b of buildings){
+      if(!b.parent) continue;
+      if(p.mesh.position.distanceTo(b.position)<b.userData.radius){
+        buildingHits.set(b,(buildingHits.get(b)||0)+1);
+        scene.remove(p.mesh); bullets.splice(i,1);
+        if(buildingHits.get(b)>=2){
+          scene.remove(b);
+          score+=100;
+          scoreDiv.innerText='Score: '+score;
         }
         break;
       }
     }
-    if(bullet.position.length() > 3000){
-      scene.remove(bullet);
-      bullets.splice(index,1);
+    if(p.mesh.position.length()>10000){
+      scene.remove(p.mesh); bullets.splice(i,1);
     }
   });
 
@@ -221,9 +212,8 @@ function animate(){
   camera.position.copy(plane.position).add(camOffset);
   camera.lookAt(plane.position);
 
-  renderer.render(scene, camera);
+  renderer.render(scene,camera);
 }
-
 </script>
 </body>
 </html>
