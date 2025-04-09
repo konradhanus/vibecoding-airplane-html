@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game z realistycznym przechylaniem</title>
+<title>3D Flying Game z dużym śmigłem z tyłu</title>
 <style>
   body {margin:0; overflow:hidden;}
   canvas {display:block;}
@@ -13,10 +13,11 @@
 <script>
 let scene, camera, renderer;
 let plane;
+let propeller;
 let keys = {};
 
-const MAX_ROLL = Math.PI/5;   // około 36 stopni
-const ROLL_SPEED = 0.05;      // szybkość płynnego przechylenia
+const MAX_ROLL = Math.PI/5;
+const ROLL_SPEED = 0.05;
 
 init();
 animate();
@@ -76,6 +77,16 @@ function init() {
   rightWing.position.set(5, 0, 0);
   plane.add(rightWing);
 
+  // ------- nowe, większe śmigło z drugiej strony (tyłu) -------
+  const propGeo = new THREE.CylinderGeometry(0.2,0.2,6,20);  // większe: średnica=0.2, długość=6
+  const propMat = new THREE.MeshPhongMaterial({color:0x222222});
+  propeller = new THREE.Mesh(propGeo, propMat);
+  propeller.rotation.x = Math.PI/2; // poziomo
+
+  propeller.position.z = 3; // ZA kadłubem (kadłub ma z=-2 do +2 dł=4)
+  
+  plane.add(propeller);
+
   plane.position.y = 50;
   scene.add(plane);
   camera.lookAt(plane.position);
@@ -106,13 +117,15 @@ function animate(){
   if(left) plane.rotation.y += turnSpeed;
   if(right) plane.rotation.y -= turnSpeed;
 
-  // ODWRÓCONE ZNAKI dla poprawnego przechylenia!
   let targetRoll = 0;
-  if(left)  targetRoll = -MAX_ROLL;   // przy skręcie w lewo – roll na minus
-  if(right) targetRoll = MAX_ROLL;    // przy skręcie w prawo – roll na plus
+  if(left)  targetRoll = -MAX_ROLL;
+  if(right) targetRoll = MAX_ROLL;
 
   plane.rotation.z += (targetRoll - plane.rotation.z)*ROLL_SPEED;
 
+  // obrót śmigła
+  propeller.rotation.z += 0.5;
+  
   const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(dir.multiplyScalar(speed*1.5));
 
