@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>3D Flying Game z dużym śmigłem z tyłu</title>
+<title>3D Flying Game - śmigło poprawiona oś obrotu</title>
 <style>
   body {margin:0; overflow:hidden;}
   canvas {display:block;}
@@ -46,7 +46,6 @@ function init() {
   ground.position.y = 0;
   scene.add(ground);
 
-  // miasta
   for(let i=0; i<200; i++){
     const w = Math.random()*10 +10;
     const d = Math.random()*10 +10;
@@ -58,7 +57,6 @@ function init() {
     scene.add(bld);
   }
 
-  // samolot
   plane = new THREE.Group();
 
   const fuselageGeo = new THREE.BoxGeometry(2,1,4);
@@ -77,18 +75,17 @@ function init() {
   rightWing.position.set(5, 0, 0);
   plane.add(rightWing);
 
-  // ------- nowe, większe śmigło z drugiej strony (tyłu) -------
-  const propGeo = new THREE.CylinderGeometry(0.2,0.2,6,20);  // większe: średnica=0.2, długość=6
-  const propMat = new THREE.MeshPhongMaterial({color:0x222222});
+  // --- poprawione śmigło: dysk, poprawna orientacja ---
+  const propGeo = new THREE.CircleGeometry(3, 32);
+  const propMat = new THREE.MeshPhongMaterial({color:0x222222, side: THREE.DoubleSide});
   propeller = new THREE.Mesh(propGeo, propMat);
-  propeller.rotation.x = Math.PI/2; // poziomo
-
-  propeller.position.z = 3; // ZA kadłubem (kadłub ma z=-2 do +2 dł=4)
-  
+  propeller.rotation.x = Math.PI/2;   // ustaw poziomo, by kręcić wokół Y
+  propeller.position.z = 3;           // z tyłu samolotu
   plane.add(propeller);
 
   plane.position.y = 50;
   scene.add(plane);
+
   camera.lookAt(plane.position);
 
   window.addEventListener('resize', onWindowResize);
@@ -123,12 +120,14 @@ function animate(){
 
   plane.rotation.z += (targetRoll - plane.rotation.z)*ROLL_SPEED;
 
-  // obrót śmigła
-  propeller.rotation.z += 0.5;
-  
+  // -- poprawny obrót śmigła wokół lokalnej osi Y --
+  propeller.rotation.y += 1;          // <-- kluczowa zmiana
+
+  // ruch do przodu
   const dir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
   plane.position.add(dir.multiplyScalar(speed*1.5));
 
+  // kamera
   const camOffset = new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);
   camera.position.copy(plane.position).add(camOffset);
   camera.lookAt(plane.position);
