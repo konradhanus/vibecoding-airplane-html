@@ -52,10 +52,28 @@ canvas {display:block;}
     display: block;
   }
 }
+#minimapContainer {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  width: 150px;
+  height: 150px;
+  border: 2px solid white;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+#minimapCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 </style>
 </head>
 <body>
 <div id="score">Score: 0</div>
+<div id="minimapContainer">
+  <canvas id="minimapCanvas"></canvas>
+</div>
 <button id="fireButton">FIRE</button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 <script>
@@ -86,6 +104,11 @@ const tiles = [];             // siatka 3×3, łącznie 9 kafelków
 
 const ROLL_SPEED = 0.05;      // poprawka – deklaracja by nie było błędu!
 
+// Minimap variables
+let minimapCanvas, minimapCtx;
+const MINIMAP_SIZE = 150; // Must match CSS width/height
+const MAP_SCALE = 0.05;   // Adjust for desired zoom level on map
+
 let touchY = null;
 let touchStartX = null;
 let swipeTurnDirection = 0;
@@ -94,6 +117,12 @@ init();
 animate();
 
 function init(){
+  // Minimap setup
+  minimapCanvas = document.getElementById('minimapCanvas');
+  minimapCtx = minimapCanvas.getContext('2d');
+  minimapCanvas.width = MINIMAP_SIZE; // Set canvas resolution
+  minimapCanvas.height = MINIMAP_SIZE;
+
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb);
 
@@ -120,6 +149,7 @@ function init(){
       );
       tile.rotation.x = -Math.PI/2;
       tile.position.set(dx*TILE_SIZE,0,dz*TILE_SIZE);
+      tile.userData.isCenter = isCenterTile; // Mark the center tile
       scene.add(tile);
       tiles.push(tile);
     }
@@ -298,8 +328,11 @@ plane.position.add(dir.multiplyScalar(speed * forwardSpeed));
   let idx=0;
   for(let dx=-1; dx<=1; dx++){
     for(let dz=-1; dz<=1; dz++){
-      tiles[idx].position.x = cx+dx*TILE_SIZE;
-      tiles[idx].position.z = cz+dz*TILE_SIZE;
+      // Only move the water tiles, keep the center island fixed relative to the world
+      if (!tiles[idx].userData.isCenter) {
+          tiles[idx].position.x = cx+dx*TILE_SIZE;
+          tiles[idx].position.z = cz+dz*TILE_SIZE;
+      }
       idx++;
     }
   }
@@ -343,6 +376,64 @@ camera.position.copy(plane.position).add(camOffset);
 camera.lookAt(plane.position);
 
 renderer.render(scene,camera);
+updateMinimap(); // Update the minimap each frame
+}
+
+function updateMinimap() {
+  if (!minimapCtx) return; // Ensure context is available
+
+  // 1. Clear minimap
+  minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.5)'; // Background color from CSS
+  minimapCtx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
+
+  // 2. Set up transform to center on plane and scale
+  minimapCtx.save();
+  minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2); // Center origin
+  minimapCtx.scale(MAP_SCALE, MAP_SCALE);                   // Apply scale
+  minimapCtx.rotate(-plane.rotation.y);                     // Rotate opposite to plane for world-up view
+  minimapCtx.translate(-plane.position.x, -plane.position.z); // Center view on plane's world position
+
+  // 3. Draw Tiles
+  tiles.forEach(tile => {
+    minimapCtx.fillStyle = tile.userData.isCenter ? 'rgb(34, 136, 34)' : 'rgb(0, 105, 148)'; // Green or Blue
+    minimapCtx.fillRect(
+      tile.position.x - TILE_SIZE / 2,
+      tile.position.z - TILE_SIZE / 2,
+      TILE_SIZE,
+      TILE_SIZE
+    );
+  });
+
+  // 4. Draw Buildings (simple squares)
+  minimapCtx.fillStyle = 'gray';
+  buildings.forEach(building => {
+    if (!building.parent) return; // Skip removed buildings
+    const buildingSizeOnMap = 10 / MAP_SCALE; // Fixed size on map regardless of scale
+     minimapCtx.fillRect(
+       building.position.x - buildingSizeOnMap / 2,
+       building.position.z - buildingSizeOnMap / 2,
+       buildingSizeOnMap,
+       buildingSizeOnMap
+     );
+  });
+
+  // 5. Restore transform to draw plane indicator relative to canvas center
+  minimapCtx.restore();
+
+  // 6. Draw Plane Indicator (triangle) in the center, pointing up
+  minimapCtx.save();
+  minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2);
+  // No need to rotate here as the world is rotated instead
+
+  minimapCtx.fillStyle = 'red';
+  minimapCtx.beginPath();
+  minimapCtx.moveTo(0, -6); // Tip of triangle
+  minimapCtx.lineTo(-4, 6); // Bottom left
+  minimapCtx.lineTo(4, 6);  // Bottom right
+  minimapCtx.closePath();
+  minimapCtx.fill();
+
+  minimapCtx.restore();
 }
 </script>
 </body>
