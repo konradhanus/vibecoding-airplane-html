@@ -112,9 +112,11 @@ function init(){
   // Tworzenie 9 kafelków
   for(let dx=-1; dx<=1; dx++){
     for(let dz=-1; dz<=1; dz++){
+      const isCenterTile = (dx === 0 && dz === 0);
+      const tileColor = isCenterTile ? 0x228822 : 0x006994; // Green for center, blue for water
       const tile = new THREE.Mesh(
         new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),
-        new THREE.MeshPhongMaterial({color:0x228822})
+        new THREE.MeshPhongMaterial({color: tileColor})
       );
       tile.rotation.x = -Math.PI/2;
       tile.position.set(dx*TILE_SIZE,0,dz*TILE_SIZE);
