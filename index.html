@@ -407,7 +407,7 @@ function updateMinimap() {
   // 4. Draw Buildings (using their actual color)
   buildings.forEach(building => {
     if (!building.parent) return; // Skip removed buildings
-    minimapCtx.fillStyle = building.material.color.getStyle(); // Get color from 3D object
+minimapCtx.fillStyle = 'black'; // Always use black color for buildings on the map
     // Use actual building dimensions (already scaled by context transform)
     const buildingWidth = building.geometry.parameters.width;
     const buildingDepth = building.geometry.parameters.depth;
