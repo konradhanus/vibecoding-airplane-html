@@ -107,7 +107,7 @@ const ROLL_SPEED = 0.05;      // poprawka – deklaracja by nie było błędu!
 // Minimap variables
 let minimapCanvas, minimapCtx;
 const MINIMAP_SIZE = 150; // Must match CSS width/height
-const MAP_SCALE = 0.05;   // Adjust for desired zoom level on map
+const MAP_SCALE = 0.03;   // Adjust for desired zoom level on map (decreased from 0.05)
 
 let touchY = null;
 let touchStartX = null;
@@ -404,16 +404,18 @@ function updateMinimap() {
     );
   });
 
-  // 4. Draw Buildings (simple squares)
-  minimapCtx.fillStyle = 'gray';
+  // 4. Draw Buildings (using their actual color)
   buildings.forEach(building => {
     if (!building.parent) return; // Skip removed buildings
-    const buildingSizeOnMap = 10 / MAP_SCALE; // Fixed size on map regardless of scale
+    minimapCtx.fillStyle = building.material.color.getStyle(); // Get color from 3D object
+    // Use actual building dimensions (already scaled by context transform)
+    const buildingWidth = building.geometry.parameters.width;
+    const buildingDepth = building.geometry.parameters.depth;
      minimapCtx.fillRect(
-       building.position.x - buildingSizeOnMap / 2,
-       building.position.z - buildingSizeOnMap / 2,
-       buildingSizeOnMap,
-       buildingSizeOnMap
+       building.position.x - buildingWidth / 2, // Center the rectangle
+       building.position.z - buildingDepth / 2, // Center the rectangle
+       buildingWidth,
+       buildingDepth
      );
   });
 
