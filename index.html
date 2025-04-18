@@ -1,65 +1,189 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Wieloosobowa Strzelanka Samolotowa (WebSocket + Interpolacja)</title>
+    <title>Wieloosobowa Strzelanka Samolotowa (WebSocket + Interpolacja + Lotniskowce v3 - Popr. Przechył)</title>
     <style>
-        /* CSS bez zmian - skopiuj z poprzedniej wersji */
-        body {margin:0; overflow:hidden; background-color: #000;}
-        canvas {display:block;}
-        #score {position:absolute; top:10px; left:10px; color:white; font-family:sans-serif; font-size:24px; background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px; z-index:10;}
-        #fireButton {position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 60px; height: 60px; border-radius: 50%; background: rgba(255,0,0,0.7); color: white; font-size: 16px; border: none; z-index: 2; display: none;}
-        @media (max-width: 768px), (hover: none) and (pointer: coarse) { #fireButton { display: block; } }
-        #minimapContainer {position: fixed; bottom: 10px; left: 10px; width: 150px; height: 150px; border: 2px solid white; background-color: rgba(0, 0, 0, 0.5); z-index: 10;}
-        #minimapCanvas {width: 100%; height: 100%; display: block;}
-        .healthBar {position: absolute; width: 80px; height: 8px; background-color: #555; border: 1px solid #fff; border-radius: 3px; overflow: hidden; z-index: 15; transform: translateX(-50%); pointer-events: none; display: none;}
-        .healthBar div {height: 100%; background-color: limegreen; width: 100%; transition: width 0.2s linear;}
-        #ranking {position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.8); color: white; padding: 20px; border-radius: 10px; border: 2px solid white; font-family: sans-serif; font-size: 18px; z-index: 20; display: none; min-width: 250px; text-align: center;}
-        #ranking h2 {margin-top: 0; border-bottom: 1px solid white; padding-bottom: 10px; margin-bottom: 10px;}
-        #ranking ul {list-style: none; padding: 0; margin: 0;}
-        #ranking li {display: flex; justify-content: space-between; padding: 5px 0;}
-        #ranking li span:first-child {text-align: left; flex-grow: 1; margin-right: 15px;}
-        #ranking li span:last-child {font-weight: bold; min-width: 30px; text-align: right;}
+        /* CSS bez zmian */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: sans-serif;
+            font-size: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        #fireButton {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            font-size: 16px;
+            border: none;
+            z-index: 2;
+            display: none;
+        }
+
+        @media (max-width: 768px),
+        (hover: none) and (pointer: coarse) {
+            #fireButton {
+                display: block;
+            }
+        }
+
+        #minimapContainer {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 150px;
+            height: 150px;
+            border: 2px solid white;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+
+        #minimapCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .healthBar {
+            position: absolute;
+            width: 80px;
+            height: 8px;
+            background-color: #555;
+            border: 1px solid #fff;
+            border-radius: 3px;
+            overflow: hidden;
+            z-index: 15;
+            transform: translateX(-50%);
+            pointer-events: none;
+            display: none;
+        }
+
+        .healthBar div {
+            height: 100%;
+            background-color: limegreen;
+            width: 100%;
+            transition: width 0.2s linear;
+        }
+
+        #ranking {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid white;
+            font-family: sans-serif;
+            font-size: 18px;
+            z-index: 20;
+            display: none;
+            min-width: 250px;
+            text-align: center;
+        }
+
+        #ranking h2 {
+            margin-top: 0;
+            border-bottom: 1px solid white;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        #ranking ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #ranking li {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        #ranking li span:first-child {
+            text-align: left;
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+
+        #ranking li span:last-child {
+            font-weight: bold;
+            min-width: 30px;
+            text-align: right;
+        }
     </style>
 </head>
+
 <body>
     <div id="score">Łączenie...</div>
     <div id="minimapContainer"><canvas id="minimapCanvas"></canvas></div>
     <button id="fireButton">FIRE</button>
-    <div id="localPlayerHealthBar" class="healthBar"><div id="localPlayerHealthFill"></div></div>
-    <div id="ranking"><h2>Ranking Zestrzeleń</h2><ul id="rankingList"></ul></div>
+    <div id="localPlayerHealthBar" class="healthBar">
+        <div id="localPlayerHealthFill"></div>
+    </div>
+    <div id="ranking">
+        <h2>Ranking Zestrzeleń</h2>
+        <ul id="rankingList"></ul>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
     <script>
         // --- Konfiguracja ---
-        const WEBSOCKET_URL = "ws://localhost:8080"; // <<< ZMIEŃ JEŚLI TRZEBA
-        const STATE_SEND_INTERVAL = 50; // ms - Można wysyłać częściej, bo wysyłamy tylko gdy stan się zmieni
-        const INTERPOLATION_FACTOR = 15; // Jak szybko samolot "dogania" cel (większa wartość = szybciej)
+        // Stałe bez zmian
+        const WEBSOCKET_URL = "ws://localhost:8080";
+        const STATE_SEND_INTERVAL = 50;
+        const INTERPOLATION_FACTOR = 15;
         const MAX_HEALTH = 100;
-        const RESPAWN_TIME = 5.0;
         const TILE_SIZE = 1000;
         const ROLL_SPEED = 0.05;
         const BASE_FORWARD_SPEED_MULTIPLIER = 1.5;
-        const BASE_VERTICAL_SPEED = 60.0; // Prędkość w jednostkach na sekundę (oryginalne 1.0 na klatkę ~ 60/s)
-        const BASE_TURN_SPEED = 1.8;      // Prędkość w radianach na sekundę (oryginalne 0.03 na klatkę ~ 1.8/s)
-        const BASE_PROPELLER_SPEED_MULTIPLIER = 90; // Radiany na sekundę (oryginalne 1 * 15 ~ 90/s)
-
+        const BASE_VERTICAL_SPEED = 60.0;
+        const BASE_TURN_SPEED = 1.8;
+        const BASE_PROPELLER_SPEED_MULTIPLIER = 90;
+        const CARRIER_DISTANCE = 1500;
 
         // --- Zmienne Globalne ---
+        // Zmienne bez zmian
         let localPlayerId = null;
-        let opponentPlanes = {}; // { id: { plane: mesh, healthBar: element, targetPos: Vector3, targetQuat: Quaternion } }
-        let game_state = {};
+        let opponentPlanes = {};
         let showRanking = false;
         const rankingDiv = document.getElementById('ranking');
         const rankingList = document.getElementById('rankingList');
         const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
-
         let scene, camera, renderer;
         let plane;
         let keys = {};
         let bullets = [];
         let buildings = [];
+        let carriers = [];
         let score = 0;
         const scoreDiv = document.getElementById('score');
         const tiles = [];
@@ -69,7 +193,7 @@
         const localHealthBar = document.getElementById('localPlayerHealthBar');
         const localHealthFill = document.getElementById('localPlayerHealthFill');
         let minimapCanvas, minimapCtx;
-        const MINIMAP_SIZE = 150, MAP_SCALE = 0.03;
+        const MINIMAP_SIZE = 150, MAP_SCALE = 0.015;
         const clock = new THREE.Clock();
         let socket = null;
         let isConnected = false;
@@ -81,16 +205,16 @@
         animate();
 
         function init() {
-            // Inicjalizacja Three.js, UI, obiektów gry - bez większych zmian
-            if(hasTouch) document.getElementById('fireButton').style.display = 'block'; else document.getElementById('fireButton').style.display = 'none';
+            // init bez zmian
+            if (hasTouch) document.getElementById('fireButton').style.display = 'block'; else document.getElementById('fireButton').style.display = 'none';
             minimapCanvas = document.getElementById('minimapCanvas'); minimapCtx = minimapCanvas.getContext('2d'); minimapCanvas.width = MINIMAP_SIZE; minimapCanvas.height = MINIMAP_SIZE;
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x87ceeb);
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 10000);
-            renderer = new THREE.WebGLRenderer({antialias:true}); renderer.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(renderer.domElement);
-            scene.add(new THREE.AmbientLight(0xffffff,0.7));
-            const dl = new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(100,200,-50); scene.add(dl);
-            createTiles(); createBuildings();
-            plane = createAirplane(0xff0000); plane.position.y = 50; plane.visible = false; scene.add(plane);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+            renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(100, 200, -50); scene.add(dl);
+            createTiles(); createBuildings(); createCarriers();
+            plane = createAirplane(0xff0000); plane.visible = false; scene.add(plane);
             localHealthBar.style.display = 'none';
             window.addEventListener('resize', onWindowResize); window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
             window.addEventListener('touchstart', onTouchStart, { passive: false }); window.addEventListener('touchmove', onTouchMove, { passive: false }); window.addEventListener('touchend', onTouchEnd);
@@ -98,73 +222,106 @@
         }
 
         // --- WebSocket ---
-        function connectWebSocket() { /* ... bez zmian ... */ console.log("Attempting..."); socket = new WebSocket(WEBSOCKET_URL); socket.onopen = ()=>{console.log("Connected!"); isConnected = true; scoreDiv.innerText="Połączono!"; setInterval(sendStateUpdateIfNeeded, STATE_SEND_INTERVAL);}; socket.onmessage = (e)=>{try{handleServerMessage(JSON.parse(e.data));}catch(err){console.error("Parse Error:",err,e.data);}}; socket.onclose = (e)=>{console.log("Disconnected.",e.reason); isConnected=false; localPlayerId=null; scoreDiv.innerText="Rozłączono..."; Object.keys(opponentPlanes).forEach(removeOpponent); if(plane)plane.visible=false; localHealthBar.style.display='none'; setTimeout(connectWebSocket, 5000);}; socket.onerror = (e)=>{console.error("WS Error:",e); scoreDiv.innerText="Błąd połączenia.";};}
-        function sendWebSocketMessage(d) { /* ... bez zmian ... */ if(isConnected&&socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify(d));}else{console.warn("WS not connected.");}}
-        function handleServerMessage(m) { /* ... logika routingu wiadomości bez zmian ... */ switch(m.type){case 'your_id':localPlayerId=m.id;console.log("My ID:",localPlayerId);setupLocalPlane();break;case 'game_state':console.log("Initial state");const cPIds=Object.keys(m.state||{});Object.keys(opponentPlanes).forEach(oI=>{if(oI!=localPlayerId&&!cPIds.includes(String(oI))){removeOpponent(oI);}});for(const pI in m.state){if(pI!=localPlayerId){handleOpponentUpdate(pI,m.state[pI]);}else{updateLocalPlayerFromServer(m.state[pI]);}}break;case 'player_joined':console.log("Joined:",m.player.id);if(m.player.id!=localPlayerId){handleOpponentUpdate(m.player.id,m.player);}break;case 'player_update':if(m.player.id==localPlayerId){updateLocalPlayerFromServer(m.player);}else{handleOpponentUpdate(m.player.id,m.player);}break;case 'player_left':console.log("Left:",m.id);removeOpponent(m.id);break;case 'player_killed':console.log(`Kill: ${m.killerId} -> ${m.victimId}`);if(m.killerId==localPlayerId&&plane){plane.userData.kills=m.killerKills;console.log("Kill Confirmed:",plane.userData.kills);}if(m.victimId!=localPlayerId&&opponentPlanes[m.victimId]){const vP=opponentPlanes[m.victimId].plane;if(vP&&vP.userData.isAlive){vP.userData.isAlive=false;vP.visible=false;if(opponentPlanes[m.victimId].healthBar)opponentPlanes[m.victimId].healthBar.style.display='none';}}break;}if(showRanking){updateRankingWebSocket();}}
-        function setupLocalPlane() { /* ... bez zmian ... */ if(!plane||localPlayerId===null)return;plane.userData.id=localPlayerId;plane.userData.health=MAX_HEALTH;plane.userData.maxHealth=MAX_HEALTH;plane.userData.kills=0;plane.userData.isAlive=true;plane.userData.respawnTimer=0;plane.userData.collisionRadius=5;plane.visible=true;localHealthBar.style.display='block';updateHealthBar(plane,localHealthFill);positionHealthBar(plane,localHealthBar);plane.position.set((Math.random()-0.5)*200,50,(Math.random()-0.5)*200);plane.rotation.set(0,Math.random()*Math.PI*2,0);updateCamera();}
-        function updateLocalPlayerFromServer(sD) { /* ... bez zmian ... */ if(!plane)return;plane.userData.health=sD.health;plane.userData.kills=sD.kills;if(plane.userData.isAlive&&!sD.isAlive){console.log("Server killed local player.");handlePlayerDeath(plane,null);}updateHealthBar(plane,localHealthFill);}
-        function sendStateUpdateIfNeeded() { /* ... bez zmian ... */ if(!isConnected||!plane||!plane.userData.isAlive)return;const cS={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3)),health:plane.userData.health,kills:plane.userData.kills,isAlive:plane.userData.isAlive};if(JSON.stringify(cS)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:cS});lastSentState=cS;}}
+        // Funkcje WebSocket (connectWebSocket, sendWebSocketMessage, handleServerMessage, setupLocalPlane, updateLocalPlayerFromServer, sendStateUpdateIfNeeded) bez zmian
+        // Skopiuj z poprzedniej poprawionej wersji (tej z poprawną rotacją startową z serwera)
+        function connectWebSocket() { console.log("Attempting..."); socket = new WebSocket(WEBSOCKET_URL); socket.onopen = () => { console.log("Connected!"); isConnected = true; scoreDiv.innerText = "Połączono!"; setInterval(sendStateUpdateIfNeeded, STATE_SEND_INTERVAL); }; socket.onmessage = (e) => { try { handleServerMessage(JSON.parse(e.data)); } catch (err) { console.error("Parse Error:", err, e.data); } }; socket.onclose = (e) => { console.log("Disconnected.", e.reason); isConnected = false; localPlayerId = null; scoreDiv.innerText = "Rozłączono..."; Object.keys(opponentPlanes).forEach(removeOpponent); if (plane) plane.visible = false; localHealthBar.style.display = 'none'; setTimeout(connectWebSocket, 5000); }; socket.onerror = (e) => { console.error("WS Error:", e); scoreDiv.innerText = "Błąd połączenia."; }; }
+        function sendWebSocketMessage(d) { if (isConnected && socket && socket.readyState === WebSocket.OPEN) { socket.send(JSON.stringify(d)); } else { console.warn("WS not connected."); } }
+        function handleServerMessage(m) {
+            switch (m.type) {
+                case 'your_id': localPlayerId = m.id; console.log("My ID:", localPlayerId); setupLocalPlane(); break;
+                case 'game_state': console.log("Initial game state received"); const currentPlayers = Object.keys(m.state || {}); Object.keys(opponentPlanes).forEach(opponentId => { if (opponentId != localPlayerId && !currentPlayers.includes(String(opponentId))) { removeOpponent(opponentId); } }); for (const playerId in m.state) { if (playerId == localPlayerId) { updateLocalPlayerFromServer(m.state[playerId]); } else { handleOpponentUpdate(playerId, m.state[playerId]); } } break;
+                case 'player_joined': console.log("Player joined:", m.player.id); if (m.player.id != localPlayerId) { handleOpponentUpdate(m.player.id, m.player); } break;
+                case 'player_update': if (m.player.id == localPlayerId) { updateLocalPlayerFromServer(m.player); } else { handleOpponentUpdate(m.player.id, m.player); } break;
+                case 'player_left': console.log("Player left:", m.id); removeOpponent(m.id); break;
+                case 'player_killed': console.log(`Kill confirmed: ${m.killerId} -> ${m.victimId}`); break;
+            }
+            if (showRanking) { updateRankingWebSocket(); }
+        }
+        function setupLocalPlane() { if (!plane || localPlayerId === null) return; plane.userData.id = localPlayerId; plane.userData.maxHealth = MAX_HEALTH; plane.userData.collisionRadius = 5; }
+        function updateLocalPlayerFromServer(serverData) { if (!plane || localPlayerId === null) return; const wasAlive = plane.userData.isAlive; const isNowAlive = serverData.isAlive; plane.userData.health = serverData.health; plane.userData.kills = serverData.kills; plane.userData.isAlive = isNowAlive; if (serverData.x !== undefined) plane.position.x = serverData.x; if (serverData.y !== undefined) plane.position.y = serverData.y; if (serverData.z !== undefined) plane.position.z = serverData.z; if (serverData.rotY !== undefined) plane.rotation.y = serverData.rotY; if (isNowAlive && !wasAlive) { console.log("Local player respawned by server update."); plane.visible = true; localHealthBar.style.display = 'block'; currentForwardSpeedMultiplier = BASE_FORWARD_SPEED_MULTIPLIER; currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER; } else if (!isNowAlive && wasAlive) { console.log("Local player killed by server update."); handlePlayerDeath(plane); } if (isNowAlive) { updateHealthBar(plane, localHealthFill); positionHealthBar(plane, localHealthBar); } }
+        function sendStateUpdateIfNeeded() { if (!isConnected || !plane || !plane.userData.isAlive) return; const cS = { x: parseFloat(plane.position.x.toFixed(2)), y: parseFloat(plane.position.y.toFixed(2)), z: parseFloat(plane.position.z.toFixed(2)), rotY: parseFloat(plane.rotation.y.toFixed(3)), rotZ: parseFloat(plane.rotation.z.toFixed(3)) }; if (JSON.stringify(cS) !== JSON.stringify(lastSentState)) { sendWebSocketMessage({ type: 'update_state', state: cS }); lastSentState = cS; } }
+
 
         // --- Pętla Główna Gry ---
-        function animate(time){
+        function animate(time) {
             requestAnimationFrame(animate);
-            const deltaTime = Math.min(clock.getDelta(), 0.1); // Ogranicz deltaTime, aby uniknąć dużych skoków
+            const deltaTime = Math.min(clock.getDelta(), 0.1);
 
-            // --- Sterowanie Lokalnym Graczem (Używa deltaTime) ---
+            // --- Sterowanie Lokalnym Graczem ---
             if (plane && plane.userData.isAlive) {
-                const turnSpeed = BASE_TURN_SPEED; // Radiany/s
-                const verticalSpeed = BASE_VERTICAL_SPEED; // Jednostki/s
-                let currentBaseForwardSpeed = BASE_VERTICAL_SPEED; // Jednostki/s
+                const turnSpeed = BASE_TURN_SPEED;
+                const verticalSpeed = BASE_VERTICAL_SPEED;
+                let currentBaseForwardSpeed = BASE_VERTICAL_SPEED;
 
-                // Sterowanie góra/dół
+                // Sterowanie góra/dół - bez zmian
                 let moveUp = keys['arrowup'] || keys['w']; let moveDown = keys['arrowdown'] || keys['s'];
-                if (touchY !== null) { const sH = window.innerHeight; if (touchY < sH*0.4) moveUp = true; else if (touchY > sH*0.6) moveDown = true; }
+                if (touchY !== null) { const sH = window.innerHeight; if (touchY < sH * 0.4) moveUp = true; else if (touchY > sH * 0.6) moveDown = true; }
                 if (moveUp) plane.position.y += verticalSpeed * deltaTime;
                 if (moveDown) plane.position.y -= verticalSpeed * deltaTime;
 
                 // Sterowanie lewo/prawo
-                const left = keys['arrowleft'] || keys['a']; const right = keys['arrowright'] || keys['d'];
-                let targetRoll = 0;
-                if (left) { plane.rotation.y += turnSpeed * deltaTime; targetRoll = Math.PI / 5; }
-                if (right) { plane.rotation.y -= turnSpeed * deltaTime; targetRoll = -Math.PI / 5; }
-                // Swipe
-                if (Math.abs(swipeTurnDirection) > 1) { const sS = 0.15; plane.rotation.y -= swipeTurnDirection * sS * deltaTime; targetRoll = Math.max(-Math.PI/4, Math.min(Math.PI/4, -swipeTurnDirection * sS * 0.5)); swipeTurnDirection *= (1 - 5 * deltaTime); } // Szybsze wygaszanie
+                const left = keys['arrowleft'] || keys['a'];
+                const right = keys['arrowright'] || keys['d'];
+                let targetRoll = 0; // Celowy przechył
 
-                // Przechył
-                plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED * 60 * deltaTime; // Skaluj ROLL_SPEED przez 60
+                // *** POPRAWKA LOGIKI SKRĘTU I PRZECHYŁU DLA KLAWISZY ***
+                if (left) {
+                    // Skręt w lewo (obrót nosa w lewo - zwiększamy Y)
+                    plane.rotation.y += turnSpeed * deltaTime;
+                    // ODWROTNY Przechył (W PRAWO - ujemna rotacja Z)
+                    targetRoll = -Math.PI / 5; // <<< POPRAWIONA LINIA
+                }
+                if (right) {
+                    // Skręt w prawo (obrót nosa w prawo - zmniejszamy Y)
+                    plane.rotation.y -= turnSpeed * deltaTime;
+                    // ODWROTNY Przechył (W LEWO - dodatnia rotacja Z)
+                    targetRoll = Math.PI / 5; // <<< POPRAWIONA LINIA
+                }
+                // *** POPRAWKA LOGIKI SKRĘTU I ODWROTNEGO PRZECHYŁU DLA SWIPE ***
+                if (Math.abs(swipeTurnDirection) > 1) {
+                    const swipeSensitivity = 0.15;
+                    // Skręt nosa - bez zmian
+                    plane.rotation.y -= swipeTurnDirection * swipeSensitivity * deltaTime;
 
-                // Spowolnienie/Przyspieszenie
-                 if (plane.position.y <= 3) {
-                    currentPropellerSpeedMultiplier = Math.max(0, currentPropellerSpeedMultiplier * (1 - 3 * deltaTime)); // Szybsze hamowanie
+                    // ODWROTNY Przechył:
+                    // Przesunięcie w prawo (swipeTurnDirection > 0) -> przechył w LEWO (dodatni Z)
+                    // Przesunięcie w lewo (swipeTurnDirection < 0) -> przechył w PRAWO (ujemny Z)
+                    targetRoll = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, swipeTurnDirection * swipeSensitivity * 0.5)); // <<< POPRAWIONA LINIA (usunięty minus przed swipeTurnDirection)
+                    swipeTurnDirection *= (1 - 5 * deltaTime);
+                }
+
+                // Płynne dążenie do celowego przechyłu
+                plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED * 60 * deltaTime;
+
+                // Spowolnienie/Przyspieszenie - bez zmian
+                if (plane.position.y <= 3) {
+                    currentPropellerSpeedMultiplier = Math.max(0, currentPropellerSpeedMultiplier * (1 - 3 * deltaTime));
                     currentForwardSpeedMultiplier = Math.max(0, currentForwardSpeedMultiplier * (1 - 3 * deltaTime));
-                 } else {
+                } else {
                     currentPropellerSpeedMultiplier += (BASE_PROPELLER_SPEED_MULTIPLIER - currentPropellerSpeedMultiplier) * 5 * deltaTime;
                     currentForwardSpeedMultiplier += (BASE_FORWARD_SPEED_MULTIPLIER - currentForwardSpeedMultiplier) * 5 * deltaTime;
-                 }
+                }
 
-                // Śmigło
-                if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; } // Mnożnik to już radiany/s
+                // Śmigło - bez zmian
+                if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; }
 
-                // Ruch do przodu
-                const forwardDir = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
+                // Ruch do przodu - bez zmian
+                const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion);
                 const forwardMoveThisFrame = currentBaseForwardSpeed * currentForwardSpeedMultiplier * deltaTime;
                 plane.position.add(forwardDir.multiplyScalar(forwardMoveThisFrame));
 
-                // Ograniczenia i kolizje
+                // Ograniczenia i kolizje - bez zmian
                 if (plane.position.y < 2) plane.position.y = 2;
-                checkBuildingCollisions(plane);
+                checkCollisions(plane);
+
+                // Aktualizacja paska zdrowia i pozycji - bez zmian
                 updateHealthBar(plane, localHealthFill);
                 positionHealthBar(plane, localHealthBar);
-
-            } else if (plane && !plane.userData.isAlive) {
-                plane.userData.respawnTimer -= deltaTime;
-                if (plane.userData.respawnTimer <= 0) respawnPlayer(plane);
             }
 
             // --- Aktualizacje Niezależne od Stanu Gracza ---
             updateTiles();
             updateBullets(deltaTime);
-            // *** ZMIANA: Interpolacja w updateOpponentPlanes ***
             updateOpponentPlanes(deltaTime);
             updateCamera();
             renderer.render(scene, camera);
@@ -173,129 +330,56 @@
         }
 
         // --- Funkcje Aktualizujące ---
-        function createTiles() { /* ... bez zmian ... */ for(let dx=-1; dx<=1; dx++){for(let dz=-1; dz<=1; dz++){const i=(dx===0&&dz===0),c=i?0x228822:0x006994,t=new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),new THREE.MeshStandardMaterial({color:c,roughness:0.8,metalness:0.2}));t.rotation.x=-Math.PI/2;t.position.set(dx*TILE_SIZE,0,dz*TILE_SIZE);t.userData.isCenter=i;scene.add(t);tiles.push(t);}}}
-        function createBuildings() { /* ... bez zmian ... */ const m=new THREE.MeshStandardMaterial({color:0x555555,roughness:0.7,metalness:0.3});for(let i=0;i<150;i++){const w=Math.random()*15+10,d=Math.random()*15+10,h=Math.random()*120+50,g=new THREE.BoxGeometry(w,h,d),b=new THREE.Mesh(g,m);b.position.set((Math.random()-0.5)*(TILE_SIZE*0.9),h/2,(Math.random()-0.5)*(TILE_SIZE*0.9));b.userData.radius=Math.max(w,d)/2*1.1;b.userData.health=3;buildings.push(b);scene.add(b);}}
-        function createAirplane(c) { /* ... bez zmian ... */ const a=new THREE.Group(),fG=new THREE.BoxGeometry(2,1,4),fM=new THREE.MeshStandardMaterial({color:c,roughness:0.6}),f=new THREE.Mesh(fG,fM);a.add(f);const wG=new THREE.BoxGeometry(8,0.2,1.5),wM=new THREE.MeshStandardMaterial({color:0xaaaaaa,roughness:0.7}),l=new THREE.Mesh(wG,wM);l.position.set(-5,0,0);a.add(l);const r=new THREE.Mesh(wG,wM);r.position.set(5,0,0);a.add(r);const gM=new THREE.MeshStandardMaterial({color:0x333333,roughness:0.5}),gG=new THREE.CylinderGeometry(0.2,0.2,3,16),gL=new THREE.Mesh(gG,gM);gL.rotation.x=Math.PI/2;gL.position.set(-5,-0.3,1.5);a.add(gL);const gR=new THREE.Mesh(gG,gM);gR.rotation.x=Math.PI/2;gR.position.set(5,-0.3,1.5);a.add(gR);a.userData.gunPositions=[gL.position.clone(),gR.position.clone()];const p=new THREE.Group();p.position.z=3;const bM=new THREE.MeshStandardMaterial({color:0x222222,roughness:0.4}),bG=new THREE.BoxGeometry(0.5,3,0.3),b1=new THREE.Mesh(bG,bM);b1.position.y=1.5;p.add(b1);const b2=b1.clone();b2.position.y=-1.5;p.add(b2);a.add(p);a.userData.propeller=p;return a;}
-
-        // *** ZMIANA: Interpolacja ruchu przeciwników ***
-        function updateOpponentPlanes(deltaTime) {
-            for (const id in opponentPlanes) {
-                const oppData = opponentPlanes[id];
-                const opp = oppData.plane;
-                const healthBar = oppData.healthBar;
-
-                if (opp.userData.isAlive) {
-                    // Interpolacja pozycji
-                    if (oppData.targetPos) {
-                        opp.position.lerp(oppData.targetPos, INTERPOLATION_FACTOR * deltaTime);
-                    }
-                    // Interpolacja rotacji (Quaternion)
-                    if (oppData.targetQuat) {
-                        opp.quaternion.slerp(oppData.targetQuat, INTERPOLATION_FACTOR * deltaTime);
-                    }
-
-                    // Kręcenie śmigłem (wizualnie)
-                    if (opp.userData.propeller) {
-                        opp.userData.propeller.rotation.z += BASE_PROPELLER_SPEED_MULTIPLIER * 0.15 * deltaTime; // Wolniej niż gracz
-                    }
-                    // Pozycjonowanie paska życia
-                    if (healthBar) {
-                        positionHealthBar(opp, healthBar);
-                    }
-                }
-                 // Pasek życia jest ukrywany w handleOpponentUpdate / handleServerMessage, gdy isAlive = false
-            }
-        }
-        function updateTiles() { /* ... bez zmian ... */ if(!plane||!plane.parent)return;const x=Math.round(plane.position.x/TILE_SIZE)*TILE_SIZE,z=Math.round(plane.position.z/TILE_SIZE)*TILE_SIZE;let d=0;for(let X=-1;X<=1;X++){for(let Z=-1;Z<=1;Z++){if(tiles[d]){tiles[d].position.x=x+X*TILE_SIZE;tiles[d].position.z=z+Z*TILE_SIZE;}d++;}}}
-        function updateBullets(dT) { /* ... bez zmian ... */ const l=4;for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];if(!b||!b.parent){bullets.splice(i,1);continue;}b.userData.life=(b.userData.life||0)+dT;if(b.userData.life>l){scene.remove(b);bullets.splice(i,1);continue;}b.position.add(b.userData.velocity.clone().multiplyScalar(dT));let h=false;for(const B of buildings){if(!B.parent)continue;const r=B.userData.radius;if(b.position.distanceToSquared(B.position)<r*r){B.userData.health--;if(B.userData.health<=0){removeBuilding(B);if(b.userData.ownerId===localPlayerId)score+=25;}scene.remove(b);bullets.splice(i,1);h=true;break;}}if(h)continue;if(b.userData.ownerId===localPlayerId){for(const oI in opponentPlanes){const o=opponentPlanes[oI].plane;if(o.userData.isAlive){const dS=b.position.distanceToSquared(o.position),rS=o.userData.collisionRadius*o.userData.collisionRadius;if(dS<rS){console.log(`Hit ${oI}!`);sendWebSocketMessage({type:'hit_player',targetId:parseInt(oI),damage:b.userData.damage});scene.remove(b);bullets.splice(i,1);h=true;break;}}}}if(h)continue;if(b.position.lengthSq()>6000*6000){scene.remove(b);bullets.splice(i,1);}}}
-        function updateCamera() { /* ... bez zmian ... */ if(!plane||!plane.parent)return;const o=new THREE.Vector3(0,5,-20).applyQuaternion(plane.quaternion);camera.position.copy(plane.position).add(o);camera.lookAt(plane.position);}
-        function updateMinimap() { /* ... bez zmian ... */ if(!minimapCtx||!plane||!plane.parent)return;minimapCtx.fillStyle='rgba(0,0,0,0.5)';minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE);minimapCtx.save();minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2);minimapCtx.scale(MAP_SCALE,MAP_SCALE);minimapCtx.rotate(-plane.rotation.y);minimapCtx.translate(-plane.position.x,-plane.position.z);tiles.forEach(t=>{minimapCtx.fillStyle=t.userData.isCenter?'rgb(34,136,34)':'rgb(0,105,148)';minimapCtx.fillRect(t.position.x-TILE_SIZE/2,t.position.z-TILE_SIZE/2,TILE_SIZE,TILE_SIZE);});minimapCtx.fillStyle='grey';buildings.forEach(b=>{if(!b.parent)return;const w=b.geometry.parameters.width,d=b.geometry.parameters.depth;minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);});minimapCtx.fillStyle='blue';for(const i in opponentPlanes){const o=opponentPlanes[i].plane;if(o.userData.isAlive){minimapCtx.beginPath();minimapCtx.arc(o.position.x,o.position.z,15/MAP_SCALE,0,Math.PI*2);minimapCtx.fill();}}minimapCtx.restore();minimapCtx.save();minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2);minimapCtx.fillStyle='red';minimapCtx.beginPath();minimapCtx.moveTo(0,-6);minimapCtx.lineTo(-4,6);minimapCtx.lineTo(4,6);minimapCtx.closePath();minimapCtx.fill();minimapCtx.restore();}
-        function updateScoreboard() { /* ... bez zmian ... */ if(!plane||localPlayerId===null)return;scoreDiv.innerText=`Kills: ${plane.userData.kills} / Score: ${score}`;}
-        function updateRankingWebSocket() { /* ... bez zmian ... */ rankingList.innerHTML='';const pD=[];if(plane&&localPlayerId!==null){pD.push({id:localPlayerId,kills:plane.userData.kills,name:`Ty (ID: ...${String(localPlayerId).substr(-4)})`});}for(const pI in opponentPlanes){const oD=opponentPlanes[pI].plane.userData,n=`Gracz ${String(pI).substr(-4)}`;pD.push({id:pI,kills:oD.kills,name:n});}pD.sort((a,b)=>b.kills-a.kills);pD.forEach(p=>{const li=document.createElement('li'),nS=document.createElement('span'),kS=document.createElement('span');nS.textContent=p.name;kS.textContent=p.kills;if(p.id==localPlayerId)li.style.color='yellow';li.appendChild(nS);li.appendChild(kS);rankingList.appendChild(li);});}
-
+        // createTiles, createBuildings, createAirplane, createCarriers - bez zmian
+        // updateOpponentPlanes, updateTiles, updateBullets, updateCamera, updateMinimap, updateScoreboard, updateRankingWebSocket - bez zmian
+        // Skopiuj z poprzedniej wersji
+        function createTiles() { const waterColor = 0x003366; const landColor = 0x228B22; for (let dx = -2; dx <= 2; dx++) { for (let dz = -2; dz <= 2; dz++) { const isCenter = (dx === 0 && dz === 0); const tileColor = isCenter ? landColor : waterColor; const tileMaterial = new THREE.MeshStandardMaterial({ color: tileColor, roughness: isCenter ? 0.8 : 0.6, metalness: 0.1 }); const tile = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE), tileMaterial); tile.rotation.x = -Math.PI / 2; tile.userData.gridX = dx; tile.userData.gridZ = dz; tile.userData.isCenter = isCenter; scene.add(tile); tiles.push(tile); } } }
+        function createBuildings() { const m = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, metalness: 0.3 }); for (let i = 0; i < 150; i++) { const w = Math.random() * 15 + 10, d = Math.random() * 15 + 10, h = Math.random() * 120 + 50, g = new THREE.BoxGeometry(w, h, d), b = new THREE.Mesh(g, m); b.position.set((Math.random() - 0.5) * (TILE_SIZE * 0.9), h / 2, (Math.random() - 0.5) * (TILE_SIZE * 0.9)); b.userData.radius = Math.max(w, d) / 2 * 1.1; b.userData.health = 3; buildings.push(b); scene.add(b); } }
+        function createAirplane(c) { const a = new THREE.Group(), fG = new THREE.BoxGeometry(2, 1, 4), fM = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }), f = new THREE.Mesh(fG, fM); a.add(f); const wG = new THREE.BoxGeometry(8, 0.2, 1.5), wM = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.7 }), l = new THREE.Mesh(wG, wM); l.position.set(-5, 0, 0); a.add(l); const r = new THREE.Mesh(wG, wM); r.position.set(5, 0, 0); a.add(r); const gM = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }), gG = new THREE.CylinderGeometry(0.2, 0.2, 3, 16), gL = new THREE.Mesh(gG, gM); gL.rotation.x = Math.PI / 2; gL.position.set(-5, -0.3, 1.5); a.add(gL); const gR = new THREE.Mesh(gG, gM); gR.rotation.x = Math.PI / 2; gR.position.set(5, -0.3, 1.5); a.add(gR); a.userData.gunPositions = [gL.position.clone(), gR.position.clone()]; const p = new THREE.Group(); p.position.z = 3; const bM = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 }), bG = new THREE.BoxGeometry(0.5, 3, 0.3), b1 = new THREE.Mesh(bG, bM); b1.position.y = 1.5; p.add(b1); const b2 = b1.clone(); b2.position.y = -1.5; p.add(b2); a.add(p); a.userData.propeller = p; return a; }
+        function createCarriers() { const carrierGeo = new THREE.BoxGeometry(80, 20, 500); const carrierMat = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 0.8 }); const carrierPositions = [{ x: 0, z: -CARRIER_DISTANCE, rotY: 0 }, { x: CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }, { x: 0, z: CARRIER_DISTANCE, rotY: 0 }, { x: -CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }]; carrierPositions.forEach(pos => { const carrier = new THREE.Mesh(carrierGeo, carrierMat); carrier.position.set(pos.x, 10, pos.z); carrier.rotation.y = pos.rotY; carrier.userData.radius = 250; carrier.userData.isCarrier = true; carrier.userData.health = Infinity; carriers.push(carrier); scene.add(carrier); }); }
+        function updateOpponentPlanes(deltaTime) { for (const id in opponentPlanes) { const oppData = opponentPlanes[id]; const opp = oppData.plane; const healthBar = oppData.healthBar; if (opp.userData.isAlive) { if (oppData.targetPos) { opp.position.lerp(oppData.targetPos, INTERPOLATION_FACTOR * deltaTime); } if (oppData.targetQuat) { opp.quaternion.slerp(oppData.targetQuat, INTERPOLATION_FACTOR * deltaTime); } if (opp.userData.propeller) { opp.userData.propeller.rotation.z += BASE_PROPELLER_SPEED_MULTIPLIER * 0.15 * deltaTime; } if (healthBar) { positionHealthBar(opp, healthBar); } } } }
+        function updateTiles() { if (!plane || !plane.parent) return; const playerTileX = Math.round(plane.position.x / TILE_SIZE); const playerTileZ = Math.round(plane.position.z / TILE_SIZE); tiles.forEach(tile => { const tileWorldX = (playerTileX + tile.userData.gridX) * TILE_SIZE; const tileWorldZ = (playerTileZ + tile.userData.gridZ) * TILE_SIZE; tile.position.set(tileWorldX, 0, tileWorldZ); }); }
+        function updateBullets(dT) { const bulletRangeSq = 6000 * 6000; const explosionRadiusSq = 5 * 5; for (let i = bullets.length - 1; i >= 0; i--) { const bullet = bullets[i]; if (!bullet || !bullet.parent) { bullets.splice(i, 1); continue; } bullet.userData.life = (bullet.userData.life || 0) + dT; if (bullet.userData.life > 4.0) { scene.remove(bullet); bullets.splice(i, 1); continue; } bullet.position.add(bullet.userData.velocity.clone().multiplyScalar(dT)); let hit = false; for (const building of buildings) { if (!building.parent) continue; const distSq = bullet.position.distanceToSquared(building.position); const radiiSq = (building.userData.radius + 0.5) * (building.userData.radius + 0.5); if (distSq < radiiSq) { building.userData.health--; if (building.userData.health <= 0) { removeBuilding(building); if (bullet.userData.ownerId === localPlayerId) score += 25; } scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } if (hit) continue; for (const carrier of carriers) { if (!carrier.parent) continue; const distSq = bullet.position.distanceToSquared(carrier.position); const radiiSq = (carrier.userData.radius + 0.5) * (carrier.userData.radius + 0.5); if (distSq < radiiSq && Math.abs(bullet.position.y - carrier.position.y) < 15) { scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } if (hit) continue; if (bullet.userData.ownerId === localPlayerId) { for (const opponentId in opponentPlanes) { const opponentData = opponentPlanes[opponentId]; const opponentPlane = opponentData.plane; if (opponentPlane.userData.isAlive) { const distSq = bullet.position.distanceToSquared(opponentPlane.position); if (distSq < explosionRadiusSq) { console.log(`Local player hit opponent ${opponentId}!`); sendWebSocketMessage({ type: 'hit_player', targetId: parseInt(opponentId), damage: bullet.userData.damage }); scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } } } if (hit) continue; if (bullet.position.lengthSq() > bulletRangeSq) { scene.remove(bullet); bullets.splice(i, 1); } } }
+        function updateCamera() { if (!plane || !plane.parent) return; const o = new THREE.Vector3(0, 5, -20).applyQuaternion(plane.quaternion); camera.position.copy(plane.position).add(o); camera.lookAt(plane.position); }
+        function updateMinimap() { if (!minimapCtx || !plane || !plane.parent) return; minimapCtx.fillStyle = 'rgba(0,0,0,0.5)'; minimapCtx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2); minimapCtx.scale(MAP_SCALE, MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x, -plane.position.z); tiles.forEach(t => { const color = t.userData.gridX === 0 && t.userData.gridZ === 0 ? 'rgb(34,136,34)' : 'rgb(0,51,102)'; minimapCtx.fillStyle = color; minimapCtx.fillRect(t.position.x - TILE_SIZE / 2, t.position.z - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE); }); minimapCtx.fillStyle = 'grey'; buildings.forEach(b => { if (!b.parent) return; const w = b.geometry.parameters.width * 1.5; const d = b.geometry.parameters.depth * 1.5; minimapCtx.fillRect(b.position.x - w / 2, b.position.z - d / 2, w, d); }); minimapCtx.fillStyle = 'darkgrey'; carriers.forEach(c => { if (!c.parent) return; minimapCtx.save(); minimapCtx.translate(c.position.x, c.position.z); minimapCtx.rotate(c.rotation.y); const w = c.geometry.parameters.width; const d = c.geometry.parameters.depth; minimapCtx.fillRect(-w / 2, -d / 2, w, d); minimapCtx.restore(); }); minimapCtx.fillStyle = 'blue'; for (const id in opponentPlanes) { const opp = opponentPlanes[id].plane; if (opp.userData.isAlive) { minimapCtx.beginPath(); minimapCtx.arc(opp.position.x, opp.position.z, 150, 0, Math.PI * 2); minimapCtx.fill(); } } minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2); minimapCtx.fillStyle = 'red'; minimapCtx.beginPath(); minimapCtx.moveTo(0, -6); minimapCtx.lineTo(-4, 6); minimapCtx.lineTo(4, 6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
+        function updateScoreboard() { if (!plane || localPlayerId === null || plane.userData.kills === undefined) return; scoreDiv.innerText = `Kills: ${plane.userData.kills} / Score: ${score}`; }
+        function updateRankingWebSocket() { rankingList.innerHTML = ''; const pD = []; if (plane && localPlayerId !== null && plane.userData.kills !== undefined) { pD.push({ id: localPlayerId, kills: plane.userData.kills, name: `Ty (ID: ...${String(localPlayerId).substr(-4)})` }); } for (const pI in opponentPlanes) { const oD = opponentPlanes[pI].plane.userData; if (oD.kills !== undefined) { const n = `Gracz ${String(pI).substr(-4)}`; pD.push({ id: pI, kills: oD.kills, name: n }); } } pD.sort((a, b) => b.kills - a.kills); pD.forEach(p => { const li = document.createElement('li'), nS = document.createElement('span'), kS = document.createElement('span'); nS.textContent = p.name; kS.textContent = p.kills; if (p.id == localPlayerId) li.style.color = 'yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li); }); }
 
         // --- Akcje Gracza i Kolizje ---
-        function fireGuns(){ /* ... bez zmian ... */ if(!plane||!plane.userData.isAlive)return;const g=plane.userData.gunPositions;g.forEach(l=>{const p=l.clone().applyMatrix4(plane.matrixWorld),d=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize(),bG=new THREE.SphereGeometry(0.25,8,8),bM=new THREE.MeshBasicMaterial({color:0xffff00}),b=new THREE.Mesh(bG,bM);b.position.copy(p);const v=d.clone().multiplyScalar(500);b.userData.velocity=v;b.userData.ownerId=localPlayerId;b.userData.damage=15;scene.add(b);bullets.push(b);});}
-        function checkBuildingCollisions(t) { /* ... bez zmian ... */ if(!t||!t.userData.isAlive)return;const r=t.userData.collisionRadius;for(const b of buildings){if(!b.parent)continue;const br=b.userData.radius,dS=t.position.distanceToSquared(b.position);if(dS<(r+br)*(r+br)){console.log(`Collision ${t.userData.id} with building!`);const d=Math.sqrt(dS),o=r+br-d,a=t.position.clone().sub(b.position).normalize();t.position.add(a.multiplyScalar(o*1.05));if(t===plane){takeDamage(plane,20,null);}break;}}}
-        function removeBuilding(b) { /* ... bez zmian ... */ scene.remove(b);const i=buildings.indexOf(b);if(i>-1)buildings.splice(i,1);}
-        function takeDamage(tP, a, kId) { /* ... bez zmian ... */ if(!tP||!tP.userData.isAlive)return;tP.userData.health-=a;console.log(`Player ${tP.userData.id} took ${a} dmg from ${kId||'Env'}. HP: ${tP.userData.health}`);if(tP.userData.health<=0){tP.userData.health=0;if(tP===plane){handlePlayerDeath(tP,kId);}}if(tP===plane){updateHealthBar(plane,localHealthFill);}else if(opponentPlanes[tP.userData.id]){updateHealthBar(tP,opponentPlanes[tP.userData.id].healthBar.firstChild);}}
-        function handlePlayerDeath(dP, kId) { /* ... bez zmian ... */ if(!dP.userData.isAlive)return;console.log(`Player ${dP.userData.id} died! Killer: ${kId||'unknown'}`);dP.userData.isAlive=false;dP.userData.respawnTimer=RESPAWN_TIME;dP.visible=false;if(dP===plane){localHealthBar.style.display='none';}else if(opponentPlanes[dP.userData.id]){opponentPlanes[dP.userData.id].healthBar.style.display='none';}if(kId==localPlayerId&&dP!==plane){console.log("You got a kill!");if(plane)plane.userData.kills++;}}
-        function respawnPlayer(tP) { /* ... bez zmian ... */ console.log(`Player ${tP.userData.id} respawning!`);tP.position.set((Math.random()-0.5)*TILE_SIZE*0.5,50+Math.random()*50,(Math.random()-0.5)*TILE_SIZE*0.5);tP.rotation.set(0,Math.random()*Math.PI*2,0);tP.userData.health=tP.userData.maxHealth;tP.userData.isAlive=true;tP.visible=true;if(tP===plane){localHealthBar.style.display='block';updateHealthBar(plane,localHealthFill);positionHealthBar(plane,localHealthBar);}}
+        // fireGuns, checkCollisions, removeBuilding, takeDamage, handlePlayerDeath - bez zmian
+        // Skopiuj z poprzedniej wersji
+        function fireGuns() { if (!plane || !plane.userData.isAlive) return; const g = plane.userData.gunPositions; g.forEach(l => { const p = l.clone().applyMatrix4(plane.matrixWorld), d = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion).normalize(), bG = new THREE.SphereGeometry(0.25, 8, 8), bM = new THREE.MeshBasicMaterial({ color: 0xffff00 }), b = new THREE.Mesh(bG, bM); b.position.copy(p); const v = d.clone().multiplyScalar(500); b.userData.velocity = v; b.userData.ownerId = localPlayerId; b.userData.damage = 15; scene.add(b); bullets.push(b); }); }
+        function checkCollisions(targetPlane) { if (!targetPlane || !targetPlane.userData.isAlive) return; const planeRadius = targetPlane.userData.collisionRadius; const allObstacles = [...buildings, ...carriers]; for (const obstacle of allObstacles) { if (!obstacle.parent) continue; const obstacleRadius = obstacle.userData.radius; const distSq = targetPlane.position.distanceToSquared(obstacle.position); const minDistSq = (planeRadius + obstacleRadius) * (planeRadius + obstacleRadius); const heightDifference = Math.abs(targetPlane.position.y - obstacle.position.y); const verticalThreshold = obstacle.userData.isCarrier ? 20 : obstacle.geometry.parameters.height / 2 + planeRadius; if (distSq < minDistSq && heightDifference < verticalThreshold) { console.log(`Collision detected for ${targetPlane.userData.id} with ${obstacle.userData.isCarrier ? 'carrier' : 'building'}!`); const distance = Math.sqrt(distSq); const overlap = (planeRadius + obstacleRadius) - distance; const pushDirection = targetPlane.position.clone().sub(obstacle.position).normalize(); targetPlane.position.add(pushDirection.multiplyScalar(overlap * 1.05)); if (targetPlane === plane && !obstacle.userData.isCarrier) { takeDamage(plane, 20, null); } else if (targetPlane === plane && obstacle.userData.isCarrier) { takeDamage(plane, 5, null); currentForwardSpeedMultiplier *= 0.5; } break; } } }
+        function removeBuilding(b) { scene.remove(b); const i = buildings.indexOf(b); if (i > -1) buildings.splice(i, 1); }
+        function takeDamage(targetPlane, amount, killerId) { if (!targetPlane || !targetPlane.userData.isAlive) return; targetPlane.userData.health -= amount; console.log(`Player ${targetPlane.userData.id} took ${amount} dmg from ${killerId || 'Environment'}. HP: ${targetPlane.userData.health}`); if (targetPlane.userData.health <= 0) { targetPlane.userData.health = 0; if (targetPlane === plane) { handlePlayerDeath(targetPlane); sendWebSocketMessage({ type: 'i_died' }); } } if (targetPlane === plane) { updateHealthBar(plane, localHealthFill); } else if (opponentPlanes[targetPlane.userData.id]) { const oppData = opponentPlanes[targetPlane.userData.id]; if (oppData.healthBar) { updateHealthBar(targetPlane, oppData.healthBar.firstChild); } } }
+        function handlePlayerDeath(deadPlane) { if (!deadPlane.userData.isAlive) return; console.log(`Handling local effects for death of player ${deadPlane.userData.id}`); deadPlane.userData.isAlive = false; deadPlane.visible = false; if (deadPlane === plane) { localHealthBar.style.display = 'none'; keys = {}; touchY = null; touchStartX = null; swipeTurnDirection = 0; } }
 
         // --- Obsługa Sieciowa (Przeciwnicy) ---
-        function handleOpponentUpdate(pId, playerData) {
-             let oppData = opponentPlanes[pId];
-             if (!oppData) { // Nowy
-                  if (playerData.isAlive === false) return;
-                  console.log("Adding opponent:", pId);
-                  const opponentPlane = createAirplane(0x0055ff);
-                  opponentPlane.userData.id = parseInt(pId); // Używamy ID z serwera (konwertujemy na liczbę jeśli trzeba)
-                  const healthBarElement = createHealthBarElement(); document.body.appendChild(healthBarElement);
-                  // Zapisz dane przeciwnika, w tym początkowe targetPos/targetQuat
-                  oppData = {
-                      plane: opponentPlane,
-                      healthBar: healthBarElement,
-                      targetPos: new THREE.Vector3(playerData.x || 0, playerData.y || 50, playerData.z || 0),
-                      targetQuat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'))
-                  };
-                   opponentPlanes[pId] = oppData;
-
-                   // Ustaw początkowy stan wizualny od razu na cel
-                   opponentPlane.position.copy(oppData.targetPos);
-                   opponentPlane.quaternion.copy(oppData.targetQuat);
-
-                   // Ustaw resztę danych userData
-                  opponentPlane.userData.health = playerData.health !== undefined ? playerData.health : MAX_HEALTH;
-                  opponentPlane.userData.maxHealth = MAX_HEALTH;
-                  opponentPlane.userData.kills = playerData.kills !== undefined ? playerData.kills : 0;
-                  opponentPlane.userData.isAlive = true; // Jeśli go tworzymy, jest żywy
-                  opponentPlane.visible = true;
-                   opponentPlane.userData.collisionRadius = 5; // Dodaj promień kolizji
-
-                  scene.add(opponentPlane);
-                  updateHealthBar(opponentPlane, healthBarElement.firstChild); // Zaktualizuj pasek życia od razu
-             } else { // Aktualizuj istniejącego
-                  const opponent = oppData.plane;
-                  const healthBar = oppData.healthBar;
-                  const wasAlive = opponent.userData.isAlive;
-                  const isNowAlive = playerData.isAlive !== undefined ? playerData.isAlive : true;
-
-                  // Zawsze aktualizuj cel, nawet jeśli gracz jest martwy (na wypadek respawnu)
-                  oppData.targetPos.set(playerData.x || 0, playerData.y || 50, playerData.z || 0);
-                  oppData.targetQuat.setFromEuler(new THREE.Euler(0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'));
-
-                  // Zaktualizuj inne dane (zdrowie, zabójstwa)
-                  opponent.userData.health = playerData.health;
-                  opponent.userData.kills = playerData.kills;
-                  opponent.userData.isAlive = isNowAlive; // Zaktualizuj stan życia
-
-                  if (isNowAlive) {
-                       opponent.visible = true;
-                       if (healthBar) healthBar.style.display = 'block';
-                       if (healthBar) { updateHealthBar(opponent, healthBar.firstChild); } // Aktualizuj pasek jeśli żywy
-                  } else if (wasAlive) { // Właśnie umarł
-                       console.log(`Opponent ${pId} died.`);
-                       opponent.visible = false;
-                       if (healthBar) healthBar.style.display = 'none';
-                  }
-             }
-        }
-
-        function removeOpponent(pId) { /* ... bez zmian ... */ console.log("Removing:",pId);const o=opponentPlanes[pId];if(o){scene.remove(o.plane);if(o.healthBar){document.body.removeChild(o.healthBar);}delete opponentPlanes[pId];}}
+        // handleOpponentUpdate, removeOpponent - bez zmian
+        // Skopiuj z poprzedniej wersji
+        function handleOpponentUpdate(pId, playerData) { let oppData = opponentPlanes[pId]; const isJoining = !oppData; if (isJoining) { console.log("Adding opponent:", pId); const opponentPlane = createAirplane(0x0055ff); opponentPlane.userData.id = parseInt(pId); opponentPlane.userData.collisionRadius = 5; opponentPlane.userData.maxHealth = MAX_HEALTH; const healthBarElement = createHealthBarElement(); document.body.appendChild(healthBarElement); oppData = { plane: opponentPlane, healthBar: healthBarElement, targetPos: new THREE.Vector3(playerData.x, playerData.y, playerData.z), targetQuat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, playerData.rotY, playerData.rotZ || 0, 'YXZ')) }; opponentPlanes[pId] = oppData; opponentPlane.position.copy(oppData.targetPos); opponentPlane.quaternion.copy(oppData.targetQuat); scene.add(opponentPlane); } const opponent = oppData.plane; const healthBar = oppData.healthBar; const wasAlive = opponent.userData.isAlive; const isNowAlive = playerData.isAlive; oppData.targetPos.set(playerData.x, playerData.y, playerData.z); oppData.targetQuat.setFromEuler(new THREE.Euler(0, playerData.rotY, playerData.rotZ || 0, 'YXZ')); opponent.userData.health = playerData.health; opponent.userData.kills = playerData.kills; opponent.userData.isAlive = isNowAlive; if (isNowAlive) { opponent.visible = true; if (healthBar) { healthBar.style.display = 'block'; updateHealthBar(opponent, healthBar.firstChild); positionHealthBar(opponent, healthBar); } if (!wasAlive) { console.log(`Opponent ${pId} respawned or joined.`); } } else { opponent.visible = false; if (healthBar) { healthBar.style.display = 'none'; } if (wasAlive) { console.log(`Opponent ${pId} died.`); } } }
+        function removeOpponent(pId) { console.log("Removing opponent:", pId); const o = opponentPlanes[pId]; if (o) { scene.remove(o.plane); if (o.healthBar && o.healthBar.parentNode) { o.healthBar.parentNode.removeChild(o.healthBar); } delete opponentPlanes[pId]; } }
 
         // --- UI i Elementy Pomocnicze ---
-        function createHealthBarElement() { /* ... bez zmian ... */ const b=document.createElement('div');b.className='healthBar';const f=document.createElement('div');b.appendChild(f);b.style.display='none';return b;}
-        function updateHealthBar(t, f) { /* ... bez zmian ... */ if(!t||!f)return;const p=(t.userData.health/t.userData.maxHealth)*100;f.style.width=`${Math.max(0,p)}%`;if(p>60)f.style.backgroundColor='limegreen';else if(p>30)f.style.backgroundColor='gold';else f.style.backgroundColor='red';}
-        function positionHealthBar(t, b) { /* ... bez zmian ... */ if(!t||!t.parent||!t.visible||!b){if(b)b.style.display='none';return;}const v=new THREE.Vector3();v.copy(t.position).y+=4;v.project(camera);if(v.z>1||v.z<-1){b.style.display='none';return;}const x=(v.x*0.5+0.5)*renderer.domElement.clientWidth,y=(-v.y*0.5+0.5)*renderer.domElement.clientHeight;b.style.left=`${x}px`;b.style.top=`${y-10}px`;b.style.display='block';}
+        // createHealthBarElement, updateHealthBar, positionHealthBar - bez zmian
+        // Skopiuj z poprzedniej wersji
+        function createHealthBarElement() { const b = document.createElement('div'); b.className = 'healthBar'; const f = document.createElement('div'); b.appendChild(f); b.style.display = 'none'; return b; }
+        function updateHealthBar(t, f) { if (!t || !f || !t.userData.isAlive) return; const p = (t.userData.health / t.userData.maxHealth) * 100; f.style.width = `${Math.max(0, p)}%`; if (p > 60) f.style.backgroundColor = 'limegreen'; else if (p > 30) f.style.backgroundColor = 'gold'; else f.style.backgroundColor = 'red'; }
+        function positionHealthBar(t, b) { if (!t || !t.parent || !t.visible || !b) { if (b) b.style.display = 'none'; return; } const v = new THREE.Vector3(); v.copy(t.position).y += 4; v.project(camera); if (v.z > 1 || v.z < -1) { b.style.display = 'none'; return; } const x = (v.x * 0.5 + 0.5) * renderer.domElement.clientWidth, y = (-v.y * 0.5 + 0.5) * renderer.domElement.clientHeight; b.style.left = `${x}px`; b.style.top = `${y - 10}px`; b.style.display = 'block'; }
+
 
         // --- Event Listeners ---
-        function onWindowResize(){ /* ... bez zmian ... */ camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);}
-        function onKeyDown(e){ keys[e.key.toLowerCase()]=true; if(e.key===' '&&plane&&plane.userData.isAlive)fireGuns(); if(e.key==='Tab'){e.preventDefault();showRanking=true;updateRankingWebSocket();rankingDiv.style.display='block';}}
-        function onKeyUp(e){ keys[e.key.toLowerCase()]=false; if(e.key==='Tab'){showRanking=false;rankingDiv.style.display='none';}}
-        function onTouchStart(e) { /* ... bez zmian ... */ if(e.target.id==='fireButton')return;e.preventDefault();if(e.touches.length>0){touchY=e.touches[0].clientY;touchStartX=e.touches[0].clientX;swipeTurnDirection=0;}}
-        function onTouchMove(e) { /* ... bez zmian ... */ if(e.target.id==='fireButton')return;e.preventDefault();if(e.touches.length>0){const cX=e.touches[0].clientX;touchY=e.touches[0].clientY;if(touchStartX!==null){swipeTurnDirection=cX-touchStartX;}}}
-        function onTouchEnd(e) { /* ... bez zmian ... */ touchY=null;touchStartX=null;}
+        // onWindowResize, onKeyDown, onKeyUp, onTouchStart, onTouchMove, onTouchEnd - bez zmian
+        // Skopiuj z poprzedniej wersji
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        function onKeyDown(e) { keys[e.key.toLowerCase()] = true; if (e.key === ' ' && plane && plane.userData.isAlive) fireGuns(); if (e.key === 'Tab') { e.preventDefault(); showRanking = true; updateRankingWebSocket(); rankingDiv.style.display = 'block'; } }
+        function onKeyUp(e) { keys[e.key.toLowerCase()] = false; if (e.key === 'Tab') { showRanking = false; rankingDiv.style.display = 'none'; } }
+        function onTouchStart(e) { if (e.target.id === 'fireButton') return; e.preventDefault(); if (e.touches.length > 0) { touchY = e.touches[0].clientY; touchStartX = e.touches[0].clientX; swipeTurnDirection = 0; } }
+        function onTouchMove(e) { if (e.target.id === 'fireButton') return; e.preventDefault(); if (e.touches.length > 0) { const cX = e.touches[0].clientX; touchY = e.touches[0].clientY; if (touchStartX !== null) { swipeTurnDirection = cX - touchStartX; } } }
+        function onTouchEnd(e) { touchY = null; touchStartX = null; } // Celowo nie zerujemy swipeTurnDirection tutaj, aby wygaszanie działało
+
 
     </script>
 </body>
+
 </html>
