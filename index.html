@@ -6,24 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Wieloosobowa Strzelanka Samolotowa</title>
     <style>
-        /* Style podstawowe (bez zmian) */
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        /* Style podstawowe */
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; color: white; }
         canvas { display: block; }
-        #score { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; font-size: 24px; background: rgba(0, 0, 0, 0.5); padding: 5px 10px; border-radius: 5px; z-index: 10; }
+        #score { position: absolute; top: 10px; left: 10px; font-size: 24px; background: rgba(0, 0, 0, 0.5); padding: 5px 10px; border-radius: 5px; z-index: 10; }
         #fireButton { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 0, 0, 0.7); color: white; font-size: 16px; border: none; z-index: 2; display: none; }
         @media (max-width: 768px), (hover: none) and (pointer: coarse) { #fireButton { display: block; } }
         #minimapContainer { position: fixed; bottom: 10px; left: 10px; width: 150px; height: 150px; border: 2px solid white; background-color: rgba(0, 0, 0, 0.5); z-index: 10; }
         #minimapCanvas { width: 100%; height: 100%; display: block; }
         .healthBar { position: absolute; width: 80px; height: 8px; background-color: #555; border: 1px solid #fff; border-radius: 3px; overflow: hidden; z-index: 15; transform: translateX(-50%); pointer-events: none; display: none; }
         .healthBar div { height: 100%; background-color: limegreen; width: 100%; transition: width 0.2s linear; }
-        #ranking { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.8); color: white; padding: 20px; border-radius: 10px; border: 2px solid white; font-family: sans-serif; font-size: 18px; z-index: 20; display: none; min-width: 250px; text-align: center; }
+        #ranking { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 10px; border: 2px solid white; font-size: 18px; z-index: 20; display: none; min-width: 250px; text-align: center; }
         #ranking h2 { margin-top: 0; border-bottom: 1px solid white; padding-bottom: 10px; margin-bottom: 10px; }
         #ranking ul { list-style: none; padding: 0; margin: 0; }
         #ranking li { display: flex; justify-content: space-between; padding: 5px 0; }
         #ranking li span:first-child { text-align: left; flex-grow: 1; margin-right: 15px; }
         #ranking li span:last-child { font-weight: bold; min-width: 30px; text-align: right; }
         #planeSelectionPopup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        #popupContent { background-color: rgba(50, 50, 70, 0.9); padding: 30px; border-radius: 15px; border: 2px solid #aaa; text-align: center; color: white; }
+        #popupContent { background-color: rgba(50, 50, 70, 0.9); padding: 30px; border-radius: 15px; border: 2px solid #aaa; text-align: center; }
         #popupContent h2 { margin-top: 0; margin-bottom: 20px; font-size: 28px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
         #planePresentationContainer { width: 80vw; max-width: 900px; height: 40vh; min-height: 300px; margin-bottom: 25px; position: relative; border: 1px solid #555; background-color: rgba(0,0,0,0.2); }
         #planePresentationCanvas { display: block; width: 100%; height: 100%; }
@@ -33,30 +33,19 @@
         .planeOption h3 { margin-top: 0; margin-bottom: 8px; font-size: 18px; }
         .planeOption p { font-size: 14px; color: #ddd; margin-bottom: 0; }
 
-        /* ZMIENIONE/NOWE STYLE: Celownik */
+        /* Celownik */
         #crosshair {
-            position: fixed;
-            width: 20px;
-            height: 20px;
-            z-index: 11;
-            background-color: transparent;
-            border: none;
-            box-sizing: border-box;
-            pointer-events: none;
-            display: none;
-            transform-origin: center center;
-            transform: translate(-50%, -50%);
+            position: fixed; width: 20px; height: 20px; z-index: 11; background-color: transparent;
+            border: none; box-sizing: border-box; pointer-events: none; display: none;
+            transform-origin: center center; transform: translate(-50%, -50%);
         }
         #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background-color: rgba(0, 255, 0, 0.8); /* Zielony celownik */
-            box-shadow: 0 0 3px rgba(0, 255, 0, 0.5);
+            content: ''; position: absolute; background-color: rgba(0, 255, 0, 0.8); box-shadow: 0 0 3px rgba(0, 255, 0, 0.5);
         }
         #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
         #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
 
-        /* Style Sztucznego Horyzontu (bez zmian) */
+        /* Sztuczny Horyzont */
         #horizonContainer {
             position: fixed; bottom: 10px; right: 10px; width: 100px; height: 100px;
             border: 2px solid rgba(255, 255, 255, 0.7); border-radius: 50%; overflow: hidden;
@@ -73,11 +62,30 @@
         #horizonContainer::before { left: 10%; right: 10%; top: 50%; height: 2px; transform: translateY(-50%); }
         #horizonContainer::after { left: 50%; top: 40%; bottom: 40%; width: 2px; transform: translateX(-50%); }
 
+        /* NOWE STYLE: Komunikat o Śmierci */
+        #deathMessage {
+            position: fixed;
+            top: 40%; /* Lekko nad środkiem */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(180, 0, 0, 0.85); /* Ciemnoczerwone tło */
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 50; /* Nad innymi elementami UI */
+            display: none; /* Początkowo ukryty */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
     </style>
 </head>
 
 <body>
-    <!-- UI (bez zmian w strukturze) -->
+    <!-- UI -->
     <div id="planeSelectionPopup"> <div id="popupContent"> <h2>Wybierz swój samolot</h2> <div id="planePresentationContainer"> <canvas id="planePresentationCanvas"></canvas> </div> <div id="planeOptions"> <div class="planeOption" data-type="spad"> <h3>SPAD S.XIII</h3> <p>Klasyczny myśliwiec z I WŚ.</p> </div> <div class="planeOption" data-type="redbaron"> <h3>Fokker Dr.I</h3> <p>Legendarny trójpłatowiec.</p> </div> <div class="planeOption" data-type="airplane"> <h3>Generic Jet</h3> <p>Podstawowy odrzutowiec.</p> </div> </div> </div> </div>
     <div id="score">Wybierz samolot...</div>
     <div id="minimapContainer"><canvas id="minimapCanvas"></canvas></div>
@@ -86,12 +94,15 @@
     <div id="ranking"> <h2>Ranking Zestrzeleń</h2> <ul id="rankingList"></ul> </div>
     <div id="crosshair"></div>
     <div id="horizonContainer"> <div id="horizonIndicator"></div> </div>
+    <!-- NOWY ELEMENT: Komunikat o Śmierci -->
+    <div id="deathMessage"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
+    <!-- WAŻNE: Upewnij się, że ścieżka do planes.js jest poprawna -->
     <script src="planes.js"></script>
     <script>
         // --- Konfiguracja i Stałe ---
-        const WEBSOCKET_URL = "wss://7199-188-146-10-154.ngrok-free.app";
+        const WEBSOCKET_URL = "wss://7199-188-146-10-154.ngrok-free.app"; // Zmień na swój URL!
         const STATE_SEND_INTERVAL = 50;
         const INTERPOLATION_FACTOR = 15;
         const MAX_HEALTH = 100;
@@ -133,8 +144,7 @@
         let score = 0;
         const scoreDiv = document.getElementById('score');
         const tiles = [];
-        let touchPitchInput = 0;
-        let touchRollInput = 0;
+        let touchPitchInput = 0; let touchRollInput = 0;
         let touchStartX = null, touchStartY = null;
         let currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER;
         const localHealthBar = document.getElementById('localPlayerHealthBar');
@@ -142,20 +152,16 @@
         let minimapCanvas, minimapCtx;
         const MINIMAP_SIZE = 150, MAP_SCALE = 0.015;
         const clock = new THREE.Clock();
-        let socket = null;
-        let isConnected = false;
-        let lastSentState = {};
-        let gameStarted = false;
+        let socket = null; let isConnected = false;
+        let lastSentState = {}; let gameStarted = false;
         let lastRocketFireTime = 0;
 
         // Popup Wyboru Samolotu
         let popupScene, popupCamera, popupRenderer;
         let spadPreview, baronPreview, airplanePreview;
         const previewPlanes = [];
-        let hoveredPlanePreview = null;
-        let popupAnimationId = null;
-        const popupRaycaster = new THREE.Raycaster();
-        const popupMouse = new THREE.Vector2();
+        let hoveredPlanePreview = null; let popupAnimationId = null;
+        const popupRaycaster = new THREE.Raycaster(); const popupMouse = new THREE.Vector2();
         let selectedPlaneType = 'airplane';
         const planeSelectionPopup = document.getElementById('planeSelectionPopup');
         const planePresentationCanvas = document.getElementById('planePresentationCanvas');
@@ -163,20 +169,18 @@
 
         // Mapa funkcji tworzących samoloty
         const planeCreators = {
-            spad: typeof createSPAD !== 'undefined' ? createSPAD : (color) => { console.warn("createSPAD not found, using fallback"); return createAirplane(color); },
-            redbaron: typeof createRedBaron !== 'undefined' ? createRedBaron : (color) => { console.warn("createRedBaron not found, using fallback"); return createAirplane(color); },
-            airplane: typeof createAirplane !== 'undefined' ? createAirplane : (color) => { console.warn("createAirplane not found, creating basic cube"); const g = new THREE.BoxGeometry(5, 1, 5); const m = new THREE.MeshStandardMaterial({ color: color || 0xcccccc }); const p = new THREE.Mesh(g, m); p.userData = { gunPositions: [new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)], rocketPositions: [{side: 'left', position: new THREE.Vector3(-2, -0.5, 1)}, {side: 'right', position: new THREE.Vector3(2, -0.5, 1)}] }; return p; }
+            spad: typeof createSPAD !== 'undefined' ? createSPAD : (color) => { console.warn("createSPAD not found"); return createAirplane(color); },
+            redbaron: typeof createRedBaron !== 'undefined' ? createRedBaron : (color) => { console.warn("createRedBaron not found"); return createAirplane(color); },
+            airplane: typeof createAirplane !== 'undefined' ? createAirplane : (color) => { console.warn("createAirplane not found"); const g=new THREE.BoxGeometry(5,1,5); const m=new THREE.MeshStandardMaterial({color:color||0xccc}); const p=new THREE.Mesh(g,m); p.userData={gunPositions:[new THREE.Vector3(1,0,1),new THREE.Vector3(-1,0,1)],rocketPositions:[{side:'left',position:new THREE.Vector3(-2,-0.5,1)},{side:'right',position:new THREE.Vector3(2,-0.5,1)}]}; return p; }
         };
 
         // Eksplozje
         let activeExplosions = [];
 
-        // UI: Celownik i Horyzont
-        let crosshairElement = null;
-        let horizonContainerElement = null;
-        let horizonIndicatorElement = null;
-        const crosshairTarget = new THREE.Vector3();
-        const screenPosition = new THREE.Vector2();
+        // UI
+        let crosshairElement = null; let horizonContainerElement = null; let horizonIndicatorElement = null;
+        const crosshairTarget = new THREE.Vector3(); const screenPosition = new THREE.Vector2();
+        let deathMessageElement = null; // NOWE: Referencja do komunikatu o śmierci
 
         // --- Inicjalizacja Popupu ---
         showPlaneSelectionPopup();
@@ -190,7 +194,7 @@
         // --- Start Gry ---
         function startGame(){ if(gameStarted)return; gameStarted=true; scoreDiv.innerText="Łączenie..."; initMainGame(); connectWebSocket(); animate(); }
 
-        // --- Inicjalizacja Głównej Gry ---
+        // --- Inicjalizacja Głównej Gry --- ZAKTUALIZOWANA
         function initMainGame(){
             if(hasTouch)document.getElementById('fireButton').style.display='block'; else document.getElementById('fireButton').style.display='none';
             minimapCanvas=document.getElementById('minimapCanvas'); minimapCtx=minimapCanvas.getContext('2d'); minimapCanvas.width=MINIMAP_SIZE; minimapCanvas.height=MINIMAP_SIZE;
@@ -201,44 +205,47 @@
             createTiles(); createBuildings(); createCarriers();
             const creatorFunction = planeCreators[selectedPlaneType] || planeCreators.airplane;
             plane = creatorFunction(0xffffff);
-            if (!plane.userData.gunPositions) { console.warn(`Samolot typu ${selectedPlaneType} nie ma zdefiniowanych gunPositions! Używam domyślnych.`); plane.userData.gunPositions = [new THREE.Vector3(0.8, -0.2, 2.5), new THREE.Vector3(-0.8, -0.2, 2.5)]; }
-            if (!plane.userData.rocketPositions) { console.warn(`Samolot typu ${selectedPlaneType} nie ma zdefiniowanych rocketPositions! Używam domyślnych.`); plane.userData.rocketPositions = [{ side: 'left', position: new THREE.Vector3(-2.5, -0.5, 1.5) }, { side: 'right', position: new THREE.Vector3(2.5, -0.5, 1.5) }]; }
+            if (!plane.userData.gunPositions) { console.warn(`Samolot ${selectedPlaneType} nie ma gunPositions`); plane.userData.gunPositions = [new THREE.Vector3(0.8,-0.2,2.5), new THREE.Vector3(-0.8,-0.2,2.5)]; }
+            if (!plane.userData.rocketPositions) { console.warn(`Samolot ${selectedPlaneType} nie ma rocketPositions`); plane.userData.rocketPositions = [{side:'left',position:new THREE.Vector3(-2.5,-0.5,1.5)}, {side:'right',position:new THREE.Vector3(2.5,-0.5,1.5)}]; }
             plane.visible=false; plane.rotation.order='YXZ'; scene.add(plane);
             localHealthBar.style.display='none';
             crosshairElement = document.getElementById('crosshair');
             horizonContainerElement = document.getElementById('horizonContainer');
             horizonIndicatorElement = document.getElementById('horizonIndicator');
+            deathMessageElement = document.getElementById('deathMessage'); // Pobierz referencję
+
             window.addEventListener('resize',onWindowResize); window.addEventListener('keydown',onKeyDown); window.addEventListener('keyup',onKeyUp);
             window.addEventListener('touchstart',onTouchStart,{passive:false}); window.addEventListener('touchmove',onTouchMove,{passive:false}); window.addEventListener('touchend',onTouchEnd);
             const fb=document.getElementById('fireButton'); fb.addEventListener('touchstart',e=>{e.preventDefault();if(plane&&plane.userData.isAlive)fireGuns();});
         }
 
-        // --- WebSocket ---
-        function connectWebSocket(){ console.log("Łączenie z WebSocket..."); socket=new WebSocket(WEBSOCKET_URL); socket.onopen=()=>{console.log("WebSocket Połączony!"); isConnected=true; scoreDiv.innerText="Połączono!"; if(localPlayerId){sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType});} setInterval(sendStateUpdateIfNeeded,STATE_SEND_INTERVAL);}; socket.onmessage=(e)=>{try{handleServerMessage(JSON.parse(e.data));}catch(err){console.error("Błąd parsowania wiadomości:",err,e.data);}}; socket.onclose=(e)=>{console.log("WebSocket Rozłączony.",e.reason); isConnected=false; gameStarted=false; localPlayerId=null; scoreDiv.innerText="Rozłączono. Odśwież stronę."; Object.keys(opponentPlanes).forEach(removeOpponent); if(plane)plane.visible=false; localHealthBar.style.display='none'; keys={}; activeExplosions.forEach(exp => scene.remove(exp)); activeExplosions = []; bullets.forEach(b=>scene.remove(b.mesh)); bullets=[]; rockets.forEach(r=>removeRocket(r)); rockets=[]; if(crosshairElement) crosshairElement.style.display = 'none'; if(horizonContainerElement) horizonContainerElement.style.display = 'none';}; socket.onerror=(e)=>{console.error("Błąd WebSocket:",e); scoreDiv.innerText="Błąd połączenia. Odśwież."; gameStarted=false;};}
-        function sendWebSocketMessage(data){ if(isConnected&&socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify(data));}else{console.warn("Nie można wysłać wiadomości: WebSocket nie jest otwarty.");}}
+        // --- WebSocket --- ZAKTUALIZOWANY
+        function connectWebSocket(){ console.log("Łączenie z WebSocket..."); socket=new WebSocket(WEBSOCKET_URL); socket.onopen=()=>{console.log("WebSocket Połączony!"); isConnected=true; scoreDiv.innerText="Połączono!"; if(localPlayerId){sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType});} setInterval(sendStateUpdateIfNeeded,STATE_SEND_INTERVAL);}; socket.onmessage=(e)=>{try{handleServerMessage(JSON.parse(e.data));}catch(err){console.error("Błąd parsowania:",err,e.data);}}; socket.onclose=(e)=>{console.log("WebSocket Rozłączony.",e.reason); isConnected=false; gameStarted=false; localPlayerId=null; scoreDiv.innerText="Rozłączono. Odśwież."; Object.keys(opponentPlanes).forEach(removeOpponent); if(plane)plane.visible=false; localHealthBar.style.display='none'; keys={}; activeExplosions.forEach(exp=>scene.remove(exp)); activeExplosions=[]; bullets.forEach(b=>scene.remove(b.mesh)); bullets=[]; rockets.forEach(r=>removeRocket(r)); rockets=[]; if(crosshairElement) crosshairElement.style.display='none'; if(horizonContainerElement) horizonContainerElement.style.display='none'; if(deathMessageElement) deathMessageElement.style.display='none';}; socket.onerror=(e)=>{console.error("Błąd WebSocket:",e); scoreDiv.innerText="Błąd połączenia. Odśwież."; gameStarted=false;};}
+        function sendWebSocketMessage(data){ if(isConnected&&socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify(data));}else{console.warn("WS nie jest otwarty.");}}
         function handleServerMessage(message){
              switch(message.type){
-                case 'your_id': localPlayerId=message.id; console.log("Otrzymano ID:",localPlayerId); sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType}); setupLocalPlane(); break;
-                case 'game_state': console.log("Otrzymano początkowy stan gry"); const currentPlayers=Object.keys(message.state||{}); Object.keys(opponentPlanes).forEach(opponentId=>{if(opponentId!=localPlayerId&&!currentPlayers.includes(String(opponentId))){removeOpponent(opponentId);}}); for(const playerId in message.state){ const playerData=message.state[playerId]; if(playerId==localPlayerId){updateLocalPlayerFromServer(playerData);}else{handleOpponentUpdate(playerId,playerData);}} break;
-                case 'player_joined': console.log("Gracz dołączył:",message.player.id,"Typ:",message.player.planeType); if(message.player.id!=localPlayerId){handleOpponentUpdate(message.player.id,message.player);} break;
-                case 'player_update': const playerData=message.player; if(playerData.id==localPlayerId){updateLocalPlayerFromServer(playerData);}else{handleOpponentUpdate(playerData.id,playerData);} break;
-                case 'player_left': console.log("Gracz opuścił:",message.id); removeOpponent(message.id); break;
-                case 'player_killed': console.log(`Zestrzelenie: ${message.killerId} -> ${message.victimId}`); if(message.killerId === localPlayerId && message.victimId !== localPlayerId) { score += (message.weapon === 'rocket' ? 150 : 100); console.log(`Zdobyto punkt za zestrzelenie ${message.weapon === 'rocket' ? 'rakietą' : 'z działek'}!`); } break;
+                case 'your_id': localPlayerId=message.id; console.log("ID:",localPlayerId); sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType}); setupLocalPlane(); break;
+                case 'game_state': console.log("Otrzymano stan gry"); const currentPlayers=Object.keys(message.state||{}); Object.keys(opponentPlanes).forEach(oId=>{if(oId!=localPlayerId&&!currentPlayers.includes(String(oId))){removeOpponent(oId);}}); for(const pId in message.state){ const pD=message.state[pId]; if(pId==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pId,pD);}} break;
+                case 'player_joined': console.log("Dołączył:",message.player.id,"Typ:",message.player.planeType); if(message.player.id!=localPlayerId){handleOpponentUpdate(message.player.id,message.player);} break;
+                case 'player_update': const pD=message.player; if(pD.id==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pD.id,pD);} break;
+                case 'player_left': console.log("Opuścił:",message.id); removeOpponent(message.id); break;
+                case 'player_killed': console.log(`Kill: ${message.killerId} -> ${message.victimId}`); if(message.killerId === localPlayerId && message.victimId !== localPlayerId) { score += (message.weapon === 'rocket' ? 150 : 100); console.log(`Punkt za ${message.weapon === 'rocket' ? 'rakietę' : 'działka'}!`); } break;
                 case 'bullet_hit': if (message.targetId === localPlayerId) { takeDamage(plane, message.damage, message.shooterId, 'bullet'); } break;
                 case 'rocket_fired': if (message.ownerId !== localPlayerId) { console.log(`Gracz ${message.ownerId} wystrzelił rakietę (${message.side})`); spawnOpponentRocket(message); } break;
                 case 'rocket_hit':
-                    if (message.targetId === localPlayerId) { console.log(`Zostałeś trafiony rakietą przez ${message.shooterId}`); takeDamage(plane, message.damage, message.shooterId, 'rocket'); }
-                    else if (message.shooterId === localPlayerId) { console.log(`Serwer potwierdził trafienie rakietą gracza ${message.targetId}`); }
+                    if (message.targetId === localPlayerId) { console.log(`Trafiony rakietą przez ${message.shooterId}`); takeDamage(plane, message.damage, message.shooterId, 'rocket'); }
+                    else if (message.shooterId === localPlayerId) { console.log(`Potwierdzone trafienie rakietą gracza ${message.targetId}`); }
                     const hitRocket = rockets.find(r => r.id === message.rocketId && r.ownerId === message.shooterId);
-                    if (hitRocket) { console.log(`Usuwanie rakiety ${message.rocketId} po potwierdzonym trafieniu.`); removeRocket(hitRocket); }
+                    if (hitRocket) { console.log(`Usuwanie rakiety ${message.rocketId}`); removeRocket(hitRocket); }
                     break;
                 default: console.warn("Nieznany typ wiadomości:",message.type);
             }
             if(showRanking){updateRankingWebSocket();}
         }
-        function setupLocalPlane(){ if(!plane||localPlayerId===null)return; plane.userData.id=localPlayerId; plane.userData.maxHealth=MAX_HEALTH; plane.userData.collisionRadius=5; plane.userData.planeType=selectedPlaneType; console.log(`Lokalny samolot (${localPlayerId}) zainicjowany jako: ${selectedPlaneType}`);}
-        function updateLocalPlayerFromServer(serverData){ if(!plane||localPlayerId===null)return; const wasAlive=plane.userData.isAlive; const isNowAlive=serverData.isAlive; plane.userData.health=serverData.health; plane.userData.kills=serverData.kills; plane.userData.isAlive=isNowAlive; if((isNowAlive&&!wasAlive)||!plane.visible){ console.log("Ustawianie pozycji/rotacji lokalnego gracza z serwera:",serverData.x,serverData.y,serverData.z,serverData.rotY,serverData.rotX,serverData.rotZ); if(serverData.x!==undefined)plane.position.x=serverData.x; if(serverData.y!==undefined)plane.position.y=serverData.y; if(serverData.z!==undefined)plane.position.z=serverData.z; const initialRotation=new THREE.Euler(serverData.rotX||0,serverData.rotY||0,serverData.rotZ||0,'YXZ'); plane.setRotationFromEuler(initialRotation); plane.quaternion.setFromEuler(initialRotation); } if(isNowAlive){ plane.visible=true; localHealthBar.style.display='block'; if(crosshairElement) crosshairElement.style.display = 'block'; if(horizonContainerElement) horizonContainerElement.style.display = 'block'; if(!wasAlive){ console.log("Lokalny gracz odrodzony przez serwer."); keys={}; touchPitchInput=0; touchRollInput=0; } updateHealthBar(plane,localHealthFill); positionHealthBar(plane,localHealthBar); }else if(wasAlive){ console.log("Lokalny gracz zginął wg serwera."); handlePlayerDeath(plane); }}
-        function sendStateUpdateIfNeeded(){ if(!isConnected||!plane||!plane.userData.isAlive||!plane.visible||localPlayerId===null)return; const currentState={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotX:parseFloat(plane.rotation.x.toFixed(3)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3))}; if(JSON.stringify(currentState)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:currentState});lastSentState=currentState;}} // Poprawka: lastSentState = currentState
+        function setupLocalPlane(){ if(!plane||localPlayerId===null)return; plane.userData.id=localPlayerId; plane.userData.maxHealth=MAX_HEALTH; plane.userData.collisionRadius=5; plane.userData.planeType=selectedPlaneType; console.log(`Lokalny samolot (${localPlayerId}) jako: ${selectedPlaneType}`);}
+        // ZAKTUALIZOWANA: Ukrywa komunikat o śmierci przy respawnie
+        function updateLocalPlayerFromServer(serverData){ if(!plane||localPlayerId===null)return; const wasAlive=plane.userData.isAlive; const isNowAlive=serverData.isAlive; plane.userData.health=serverData.health; plane.userData.kills=serverData.kills; plane.userData.isAlive=isNowAlive; if((isNowAlive&&!wasAlive)||!plane.visible){ console.log("Ustawianie pozycji/rotacji z serwera:",serverData.x,serverData.y,serverData.z); if(serverData.x!==undefined)plane.position.x=serverData.x; if(serverData.y!==undefined)plane.position.y=serverData.y; if(serverData.z!==undefined)plane.position.z=serverData.z; const initialRotation=new THREE.Euler(serverData.rotX||0,serverData.rotY||0,serverData.rotZ||0,'YXZ'); plane.setRotationFromEuler(initialRotation); plane.quaternion.setFromEuler(initialRotation); } if(isNowAlive){ plane.visible=true; localHealthBar.style.display='block'; if(crosshairElement) crosshairElement.style.display = 'block'; if(horizonContainerElement) horizonContainerElement.style.display = 'block'; if(deathMessageElement) deathMessageElement.style.display='none'; /* NOWE: Ukryj komunikat */ if(!wasAlive){ console.log("Lokalny gracz odrodzony."); keys={}; touchPitchInput=0; touchRollInput=0; } updateHealthBar(plane,localHealthFill); positionHealthBar(plane,localHealthBar); }else if(wasAlive){ console.log("Lokalny gracz zginął wg serwera."); handlePlayerDeath(plane, serverData.killerId || 'Serwer', serverData.weapon || 'unknown'); /* Przekazanie przyczyny z serwera? */ }}
+        function sendStateUpdateIfNeeded(){ if(!isConnected||!plane||!plane.userData.isAlive||!plane.visible||localPlayerId===null)return; const currentState={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotX:parseFloat(plane.rotation.x.toFixed(3)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3))}; if(JSON.stringify(currentState)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:currentState});lastSentState=currentState;}}
 
         // --- Pętla Główna Gry ---
         function animate(time) {
@@ -248,10 +255,8 @@
 
             if (plane && plane.userData.isAlive && plane.visible) {
                 let pitchDelta=0, rollDelta=0, yawDelta=0;
-                if(keys['arrowup']||keys['w']) pitchDelta += PITCH_SPEED * deltaTime;
-                if(keys['arrowdown']||keys['s']) pitchDelta -= PITCH_SPEED * deltaTime;
-                if(keys['arrowleft']||keys['a']) rollDelta -= ROLL_SPEED * deltaTime;
-                if(keys['arrowright']||keys['d']) rollDelta += ROLL_SPEED * deltaTime;
+                if(keys['arrowup']||keys['w']) pitchDelta += PITCH_SPEED * deltaTime; if(keys['arrowdown']||keys['s']) pitchDelta -= PITCH_SPEED * deltaTime;
+                if(keys['arrowleft']||keys['a']) rollDelta -= ROLL_SPEED * deltaTime; if(keys['arrowright']||keys['d']) rollDelta += ROLL_SPEED * deltaTime;
                 if(keys['q'])yawDelta+=YAW_SPEED*deltaTime; if(keys['e'])yawDelta-=YAW_SPEED*deltaTime;
                 if(hasTouch){ if(touchPitchInput!==0){ pitchDelta += touchPitchInput * PITCH_SPEED * deltaTime; } if(touchRollInput!==0){ rollDelta += touchRollInput * ROLL_SPEED * deltaTime * 1.5; } }
                 if(Math.abs(pitchDelta)>0.001)plane.rotateX(pitchDelta); if(Math.abs(rollDelta)>0.001)plane.rotateZ(rollDelta); if(Math.abs(yawDelta)>0.001)plane.rotateY(yawDelta);
@@ -261,165 +266,112 @@
                  if(plane.position.y<GROUND_EFFECT_ALTITUDE){const gf=Math.max(0,plane.position.y/GROUND_EFFECT_ALTITUDE);currentForwardSpeed*=gf; currentPropellerSpeedMultiplier=BASE_PROPELLER_SPEED_MULTIPLIER*gf;}else{currentPropellerSpeedMultiplier+=(BASE_PROPELLER_SPEED_MULTIPLIER-currentPropellerSpeedMultiplier)*5*deltaTime;}
                  const forwardMove=currentForwardSpeed*deltaTime;
                  plane.position.add(forwardDir.clone().multiplyScalar(forwardMove));
-                 if (plane.position.y < MIN_GROUND_ALTITUDE && plane.userData.isAlive) { console.log("Kolizja z ziemią/wodą!"); createExplosion(plane.position.clone().setY(MIN_GROUND_ALTITUDE)); takeDamage(plane, MAX_HEALTH * 2, 'Ground', 'crash'); }
+                 if (plane.position.y < MIN_GROUND_ALTITUDE && plane.userData.isAlive) { takeDamage(plane, MAX_HEALTH * 2, 'Ground', 'crash'); } // Wywołanie takeDamage zamiast bezpośredniej eksplozji
                  if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; }
 
                 checkCollisions(plane); checkPlayerCollisions(plane);
                 positionHealthBar(plane, localHealthBar);
-
                 if (horizonIndicatorElement) { const rollAngleDegrees = -plane.rotation.z * (180 / Math.PI); horizonIndicatorElement.style.transform = `translateY(0%) rotate(${rollAngleDegrees}deg)`; }
-
-                if (crosshairElement && camera) {
-                    const aimDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion);
-                    crosshairTarget.copy(plane.position).add(aimDirection.multiplyScalar(CROSSHAIR_DISTANCE));
-                    const projectedPoint = crosshairTarget.clone().project(camera);
-                    if (projectedPoint.z < 1) {
-                        screenPosition.x = (projectedPoint.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
-                        screenPosition.y = (-projectedPoint.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
-                        crosshairElement.style.left = `${screenPosition.x}px`;
-                        crosshairElement.style.top = `${screenPosition.y}px`;
-                        crosshairElement.style.display = 'block';
-                    } else {
-                        crosshairElement.style.display = 'none';
-                    }
-                }
+                if (crosshairElement && camera) { const aimDir=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion); crosshairTarget.copy(plane.position).add(aimDir.multiplyScalar(CROSSHAIR_DISTANCE)); const projPt=crosshairTarget.clone().project(camera); if(projPt.z<1){screenPosition.x=(projPt.x*0.5+0.5)*renderer.domElement.clientWidth; screenPosition.y=(-projPt.y*0.5+0.5)*renderer.domElement.clientHeight; crosshairElement.style.left=`${screenPosition.x}px`; crosshairElement.style.top=`${screenPosition.y}px`; crosshairElement.style.display='block';}else{crosshairElement.style.display='none';}}
             }
 
-            updateTiles(); updateBullets(deltaTime); updateRockets(deltaTime); updateOpponentPlanes(deltaTime);
+            updateTiles(deltaTime); // Przekaż deltaTime, chociaż nie jest używane w logice tile
+            updateBullets(deltaTime); updateRockets(deltaTime); updateOpponentPlanes(deltaTime);
             updateExplosions(deltaTime); updateCamera(); renderer.render(scene, camera);
             updateMinimap(); updateScoreboard();
         }
 
         // --- Funkcje Tworzące Elementy Sceny ---
-        function createTiles(){ const wc=0x003366, lc=0x228B22; for(let x=-2; x<=2; x++) for(let z=-2; z<=2; z++){ const c=(x===0&&z===0)?lc:wc; const m=new THREE.MeshStandardMaterial({color:c, roughness:(x===0&&z===0)?0.8:0.6, metalness:0.1}); const t=new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),m); t.rotation.x=-Math.PI/2; t.userData.gridX=x; t.userData.gridZ=z; scene.add(t); tiles.push(t);}}
+        function createTiles(){ const waterColor=0x003366, landColor=0x228B22; for(let x=-2; x<=2; x++) for(let z=-2; z<=2; z++){ const isCenter = (x===0 && z===0); const color = isCenter ? landColor : waterColor; const material=new THREE.MeshStandardMaterial({color:color, roughness: isCenter ? 0.8:0.6, metalness:0.1}); const tile=new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),material); tile.rotation.x=-Math.PI/2; tile.userData.gridX=x; tile.userData.gridZ=z; tile.userData.isCenter = isCenter; /* NOWE: Flaga dla centralnego tile */ scene.add(tile); tiles.push(tile);}}
         function createBuildings(){ const m=new THREE.MeshStandardMaterial({color:0x555555,roughness:0.7,metalness:0.3}); for(let i=0; i<150; i++){ const w=Math.random()*15+10, d=Math.random()*15+10, h=Math.random()*120+50; const g=new THREE.BoxGeometry(w,h,d), b=new THREE.Mesh(g,m); b.position.set((Math.random()-0.5)*(TILE_SIZE*0.9),h/2,(Math.random()-0.5)*(TILE_SIZE*0.9)); b.userData.radius=Math.max(w,d)/2*1.1; b.userData.health=3; buildings.push(b); scene.add(b);}}
         function createCarriers(){ const g=new THREE.BoxGeometry(80,20,500), m=new THREE.MeshStandardMaterial({color:0x444455, roughness:0.8}); const p=[{x:0,z:-CARRIER_DISTANCE,r:0},{x:CARRIER_DISTANCE,z:0,r:Math.PI/2},{x:0,z:CARRIER_DISTANCE,r:0},{x:-CARRIER_DISTANCE,z:0,r:Math.PI/2}]; p.forEach(pos=>{ const c=new THREE.Mesh(g,m); c.position.set(pos.x,10,pos.z); c.rotation.y=pos.r; c.userData.radius=250; c.userData.isCarrier=true; c.userData.health=Infinity; carriers.push(c); scene.add(c);});}
 
         // --- Funkcje Eksplozji ---
-        function createExplosion(position, scale = 1.0){ console.log("Tworzenie eksplozji w:",position); const eg=new THREE.Group(); eg.position.copy(position); eg.scale.setScalar(scale); const pC=50; const pS=0.5; const eS=40; const mL=1.5; const pG=new THREE.SphereGeometry(pS,4,4); for(let i=0; i<pC; i++){ const c=new THREE.Color().lerpColors(new THREE.Color(0xffff00),new THREE.Color(0xff0000),Math.random()); const pM=new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:1.0}); const p=new THREE.Mesh(pG,pM); p.position.set((Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2); p.userData.velocity=new THREE.Vector3((Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5)).normalize().multiplyScalar(eS*(0.5+Math.random()*0.5)); p.userData.life=0; p.userData.maxLife=mL*(0.7+Math.random()*0.3); eg.add(p);} eg.userData.life=0; eg.userData.maxLife=mL; scene.add(eg); activeExplosions.push(eg);}
+        function createExplosion(position, scale = 1.0){ console.log("Eksplozja:",position); const eg=new THREE.Group(); eg.position.copy(position); eg.scale.setScalar(scale); const pC=50, pS=0.5, eS=40, mL=1.5; const pG=new THREE.SphereGeometry(pS,4,4); for(let i=0; i<pC; i++){ const c=new THREE.Color().lerpColors(new THREE.Color(0xffff00),new THREE.Color(0xff0000),Math.random()); const pM=new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:1.0}); const p=new THREE.Mesh(pG,pM); p.position.set((Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2); p.userData.velocity=new THREE.Vector3((Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5)).normalize().multiplyScalar(eS*(0.5+Math.random()*0.5)); p.userData.life=0; p.userData.maxLife=mL*(0.7+Math.random()*0.3); eg.add(p);} eg.userData.life=0; eg.userData.maxLife=mL; scene.add(eg); activeExplosions.push(eg);}
         function updateExplosions(deltaTime){ for(let i=activeExplosions.length-1; i>=0; i--){ const e=activeExplosions[i]; e.userData.life+=deltaTime; if(e.userData.life>=e.userData.maxLife){scene.remove(e); activeExplosions.splice(i,1); continue;} for(let j=e.children.length-1; j>=0; j--){ const p=e.children[j]; p.userData.life+=deltaTime; if(p.userData.life>=p.userData.maxLife){e.remove(p); continue;} p.position.add(p.userData.velocity.clone().multiplyScalar(deltaTime)); p.userData.velocity.y-=9.8*deltaTime*2; const lR=p.userData.life/p.userData.maxLife; p.material.opacity=1.0-lR; p.material.color.lerp(new THREE.Color(0x555555),deltaTime*2); p.scale.multiplyScalar(1-deltaTime*0.5); }}}
 
         // --- Funkcje Aktualizujące ---
-         function updateOpponentPlanes(deltaTime){ // POPRAWIONA
-             for(const id in opponentPlanes){
-                 const oD=opponentPlanes[id];
-                 const o=oD.plane;
-                 const hB=oD.healthBar;
-                 if(!o||!o.parent)continue;
-                 if(o.userData.isAlive){
-                     if(oD.targetPos){
-                         o.position.lerp(oD.targetPos,INTERPOLATION_FACTOR*deltaTime);
-                     }
-                     if(oD.targetQuat){
-                         o.quaternion.slerp(oD.targetQuat,INTERPOLATION_FACTOR*deltaTime); // Poprawiona zmienna
-                     }
-                     if(o.userData.propeller){
-                         o.userData.propeller.rotation.z+=BASE_PROPELLER_SPEED_MULTIPLIER*0.15*deltaTime;
-                     }
-                     if(hB){
-                         updateHealthBar(o,hB.firstChild);
-                         positionHealthBar(o,hB);
-                     }
-                 }
-             }
-         }
-        function updateTiles(){ if(!plane||!plane.parent||!gameStarted)return; const px=Math.round(plane.position.x/TILE_SIZE), pz=Math.round(plane.position.z/TILE_SIZE); tiles.forEach(t=>{const wx=(px+t.userData.gridX)*TILE_SIZE; const wz=(pz+t.userData.gridZ)*TILE_SIZE; t.position.set(wx,0,wz);});}
-        function updateBullets(deltaTime){
-            if(!gameStarted)return; const rangeSq=6000*6000;
-            for(let i=bullets.length-1; i>=0; i--){
-                const bullet=bullets[i]; if(!bullet || !bullet.mesh || !bullet.mesh.parent){ bullets.splice(i,1); continue; }
-                bullet.life += deltaTime; if(bullet.life > BULLET_LIFETIME){ scene.remove(bullet.mesh); bullets.splice(i,1); continue; }
-                bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(deltaTime));
-                let hit = false;
-                for(const b of buildings){ if(!b.parent)continue; if(bullet.mesh.position.distanceToSquared(b.position)<(b.userData.radius+0.25)**2){ b.userData.health--; if(b.userData.health<=0){ removeBuilding(b); if(bullet.ownerId===localPlayerId)score+=25;} scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue;
-                for(const c of carriers){ if(!c.parent)continue; if(bullet.mesh.position.distanceToSquared(c.position)<(c.userData.radius+0.25)**2 && Math.abs(bullet.mesh.position.y-c.position.y)<15){ scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue;
-                if(bullet.ownerId===localPlayerId){
-                    for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(bullet.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+0.25)**2){ console.log(`LP trafił opp ${oId} pociskiem!`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(oId),damage:bullet.damage, shooterId: localPlayerId, weapon: 'bullet'}); scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}}}
-                if(hit)continue; if(bullet.mesh.position.lengthSq()>rangeSq){ scene.remove(bullet.mesh); bullets.splice(i,1); }
-            }
+        function updateOpponentPlanes(deltaTime){ for(const id in opponentPlanes){ const oD=opponentPlanes[id]; const o=oD.plane; const hB=oD.healthBar; if(!o||!o.parent)continue; if(o.userData.isAlive){ if(oD.targetPos){o.position.lerp(oD.targetPos,INTERPOLATION_FACTOR*deltaTime);} if(oD.targetQuat){o.quaternion.slerp(oD.targetQuat,INTERPOLATION_FACTOR*deltaTime);} if(o.userData.propeller){o.userData.propeller.rotation.z+=BASE_PROPELLER_SPEED_MULTIPLIER*0.15*deltaTime;} if(hB){updateHealthBar(o,hB.firstChild); positionHealthBar(o,hB);}}}}
+        // ZAKTUALIZOWANA: Ustawia centralny tile na stałej pozycji
+        function updateTiles(deltaTime){ // Dodano deltaTime dla spójności, ale nie jest używane
+            if(!plane||!plane.parent||!gameStarted)return;
+            const playerGridX=Math.round(plane.position.x/TILE_SIZE);
+            const playerGridZ=Math.round(plane.position.z/TILE_SIZE);
+
+            tiles.forEach(tile=>{
+                if (tile.userData.isCenter) {
+                    // Centralny tile zawsze pozostaje na (0, 0) w świecie
+                    tile.position.set(0, 0, 0);
+                } else {
+                    // Pozostałe tilesy przesuwają się względem gracza
+                    const worldX=(playerGridX+tile.userData.gridX)*TILE_SIZE;
+                    const worldZ=(playerGridZ+tile.userData.gridZ)*TILE_SIZE;
+                    tile.position.set(worldX, 0, worldZ);
+                }
+            });
         }
-        function updateRockets(deltaTime) {
-            if(!gameStarted) return;
-            for (let i = rockets.length - 1; i >= 0; i--) {
-                const rocket = rockets[i]; if (!rocket || !rocket.mesh || !rocket.mesh.parent) { rockets.splice(i, 1); continue; }
-                rocket.life += deltaTime;
-                rocket.mesh.position.add(rocket.velocity.clone().multiplyScalar(deltaTime));
-                rocket.mesh.lookAt(rocket.mesh.position.clone().add(rocket.velocity));
-                if (rocket.trailMesh && rocket.trailMesh.material) { const trailLifeRatio = Math.min(rocket.life / ROCKET_TRAIL_FADE_TIME, 1.0); rocket.trailMesh.material.opacity = 1.0 - trailLifeRatio; if (rocket.trailMesh.material.opacity <= 0) { scene.remove(rocket.trailMesh); rocket.trailMesh = null; } }
-                if (rocket.life > ROCKET_LIFETIME) { removeRocket(rocket); continue; }
-                let hit = false; const rocketRadius = 0.7;
-                for(const b of buildings){ if(!b.parent)continue; if(rocket.mesh.position.distanceToSquared(b.position)<(b.userData.radius+rocketRadius)**2){ console.log(`Rakieta ${rocket.id} uderzyła w budynek`); createExplosion(rocket.mesh.position.clone(), 1.5); b.userData.health -= 2; if(b.userData.health<=0){ removeBuilding(b); if(rocket.ownerId===localPlayerId)score+=50;} removeRocket(rocket); hit=true; break;}} if(hit)continue;
-                for(const c of carriers){ if(!c.parent)continue; if(rocket.mesh.position.distanceToSquared(c.position)<(c.userData.radius+rocketRadius)**2 && Math.abs(rocket.mesh.position.y - c.position.y) < 25){ console.log(`Rakieta ${rocket.id} uderzyła w lotniskowiec`); createExplosion(rocket.mesh.position.clone(), 1.5); removeRocket(rocket); hit=true; break;}} if(hit)continue;
-                 if(rocket.ownerId===localPlayerId){
-                    for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(rocket.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+rocketRadius)**2){ console.log(`LP trafił opp ${oId} rakietą ${rocket.id}!`); createExplosion(rocket.mesh.position.clone(), 1.2); sendWebSocketMessage({type:'hit_player', targetId:parseInt(oId), damage:rocket.damage, shooterId: localPlayerId, weapon: 'rocket', rocketId: rocket.id }); removeRocket(rocket); hit=true; break;}}}
-            }
-        }
+        function updateBullets(deltaTime){ if(!gameStarted)return; const rangeSq=6000*6000; for(let i=bullets.length-1; i>=0; i--){ const bullet=bullets[i]; if(!bullet || !bullet.mesh || !bullet.mesh.parent){ bullets.splice(i,1); continue; } bullet.life += deltaTime; if(bullet.life > BULLET_LIFETIME){ scene.remove(bullet.mesh); bullets.splice(i,1); continue; } bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(deltaTime)); let hit = false; for(const b of buildings){ if(!b.parent)continue; if(bullet.mesh.position.distanceToSquared(b.position)<(b.userData.radius+0.25)**2){ b.userData.health--; if(b.userData.health<=0){ removeBuilding(b); if(bullet.ownerId===localPlayerId)score+=25;} scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue; for(const c of carriers){ if(!c.parent)continue; if(bullet.mesh.position.distanceToSquared(c.position)<(c.userData.radius+0.25)**2 && Math.abs(bullet.mesh.position.y-c.position.y)<15){ scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue; if(bullet.ownerId===localPlayerId){ for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(bullet.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+0.25)**2){ console.log(`LP trafił opp ${oId} pociskiem!`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(oId),damage:bullet.damage, shooterId: localPlayerId, weapon: 'bullet'}); scene.remove(bullet.mesh); bullets.splice(i,1); hit=true; break;}}} if(hit)continue; if(bullet.mesh.position.lengthSq()>rangeSq){ scene.remove(bullet.mesh); bullets.splice(i,1); } } }
+        function updateRockets(deltaTime) { if(!gameStarted) return; for (let i = rockets.length - 1; i >= 0; i--) { const rocket = rockets[i]; if (!rocket || !rocket.mesh || !rocket.mesh.parent) { rockets.splice(i, 1); continue; } rocket.life += deltaTime; rocket.mesh.position.add(rocket.velocity.clone().multiplyScalar(deltaTime)); rocket.mesh.lookAt(rocket.mesh.position.clone().add(rocket.velocity)); if (rocket.trailMesh && rocket.trailMesh.material) { const trailLifeRatio = Math.min(rocket.life / ROCKET_TRAIL_FADE_TIME, 1.0); rocket.trailMesh.material.opacity = 1.0 - trailLifeRatio; if (rocket.trailMesh.material.opacity <= 0) { scene.remove(rocket.trailMesh); rocket.trailMesh = null; } } if (rocket.life > ROCKET_LIFETIME) { removeRocket(rocket); continue; } let hit = false; const rocketRadius = 0.7; for(const b of buildings){ if(!b.parent)continue; if(rocket.mesh.position.distanceToSquared(b.position)<(b.userData.radius+rocketRadius)**2){ console.log(`Rakieta ${rocket.id} w budynek`); createExplosion(rocket.mesh.position.clone(), 1.5); b.userData.health -= 2; if(b.userData.health<=0){ removeBuilding(b); if(rocket.ownerId===localPlayerId)score+=50;} removeRocket(rocket); hit=true; break;}} if(hit)continue; for(const c of carriers){ if(!c.parent)continue; if(rocket.mesh.position.distanceToSquared(c.position)<(c.userData.radius+rocketRadius)**2 && Math.abs(rocket.mesh.position.y - c.position.y) < 25){ console.log(`Rakieta ${rocket.id} w lotniskowiec`); createExplosion(rocket.mesh.position.clone(), 1.5); removeRocket(rocket); hit=true; break;}} if(hit)continue; if(rocket.ownerId===localPlayerId){ for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(rocket.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+rocketRadius)**2){ console.log(`LP trafił opp ${oId} rakietą ${rocket.id}!`); createExplosion(rocket.mesh.position.clone(), 1.2); sendWebSocketMessage({type:'hit_player', targetId:parseInt(oId), damage:rocket.damage, shooterId: localPlayerId, weapon: 'rocket', rocketId: rocket.id }); removeRocket(rocket); hit=true; break;}}} } }
         function updateCamera(){ if(!plane||!plane.parent||!gameStarted)return; const o=new THREE.Vector3(0,CAMERA_HEIGHT,-CAMERA_DISTANCE); const cTP=o.applyMatrix4(plane.matrixWorld); camera.position.lerp(cTP,0.1); const lAT=new THREE.Vector3(0,0,10).applyMatrix4(plane.matrixWorld); camera.lookAt(lAT);}
         function updateMinimap(){ if(!minimapCtx||!plane||!plane.parent||!gameStarted) return; minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.scale(MAP_SCALE,MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x,-plane.position.z); tiles.forEach(t=>{const c=t.userData.gridX===0&&t.userData.gridZ===0?'rgb(34,136,34)':'rgb(0,51,102)'; minimapCtx.fillStyle=c; minimapCtx.fillRect(t.position.x-TILE_SIZE/2, t.position.z-TILE_SIZE/2, TILE_SIZE, TILE_SIZE);}); minimapCtx.fillStyle='grey'; buildings.forEach(b=>{if(!b.parent)return; const w=b.geometry.parameters.width*1.5, d=b.geometry.parameters.depth*1.5; minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);}); minimapCtx.fillStyle='darkgrey'; carriers.forEach(c=>{if(!c.parent)return; minimapCtx.save(); minimapCtx.translate(c.position.x,c.position.z); minimapCtx.rotate(c.rotation.y); const w=c.geometry.parameters.width, d=c.geometry.parameters.depth; minimapCtx.fillRect(-w/2,-d/2,w,d); minimapCtx.restore();}); minimapCtx.fillStyle='blue'; for (const id in opponentPlanes){const o=opponentPlanes[id]; if(o&&o.plane&&o.plane.userData.isAlive){minimapCtx.beginPath(); minimapCtx.arc(o.plane.position.x,o.plane.position.z,150,0,Math.PI*2); minimapCtx.fill();}} minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.fillStyle='red'; minimapCtx.beginPath(); minimapCtx.moveTo(0,-6); minimapCtx.lineTo(-4,6); minimapCtx.lineTo(4,6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
         function updateScoreboard(){ if (!plane||localPlayerId===null||plane.userData.kills===undefined||!gameStarted) return; scoreDiv.innerText=`Kills: ${plane.userData.kills} / Score: ${score}`; }
         function updateRankingWebSocket(){ rankingList.innerHTML=''; const pD=[]; if(plane&&localPlayerId!==null&&plane.userData.kills!==undefined&&gameStarted){pD.push({id:localPlayerId,kills:plane.userData.kills,name:`Ty (${plane.userData.planeType||'?'})`});} for(const pI in opponentPlanes){const oD=opponentPlanes[pI]; if(oD&&oD.plane&&oD.plane.userData.kills!==undefined){const n=`Gracz ${String(pI).substr(-4)} (${oD.planeType||'?'})`; pD.push({id:pI,kills:oD.plane.userData.kills,name:n});}} pD.sort((a,b)=>b.kills-a.kills); pD.forEach(p=>{const li=document.createElement('li'),nS=document.createElement('span'),kS=document.createElement('span'); nS.textContent=p.name; kS.textContent=p.kills; if(p.id==localPlayerId)li.style.color='yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li);});}
 
         // --- Akcje Gracza i Kolizje ---
-        function fireGuns(){
-            if(!plane||!plane.userData.isAlive||!plane.visible||!gameStarted)return;
-            const gunPositions=plane.userData.gunPositions; if(!gunPositions||gunPositions.length===0){console.warn("Brak gunPositions.");return;}
-            gunPositions.forEach(lp=>{
-                const wg=lp.clone().applyMatrix4(plane.matrixWorld);
-                const fd=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize();
-                const bG=new THREE.SphereGeometry(0.25, 6, 6); const bM=new THREE.MeshBasicMaterial({color:0xffff00}); const bMh=new THREE.Mesh(bG,bM); bMh.position.copy(wg);
-                const bD = { mesh: bMh, velocity: fd.clone().multiplyScalar(BULLET_SPEED), ownerId: localPlayerId, damage: BULLET_DAMAGE, life: 0 };
-                scene.add(bMh); bullets.push(bD);
-            });
-        }
-        function fireRocket(side) {
-            if(!plane || !plane.userData.isAlive || !plane.visible || !gameStarted) return;
-            const now = Date.now(); if (now - lastRocketFireTime < ROCKET_COOLDOWN) { return; }
-            const rocketPositions = plane.userData.rocketPositions; if (!rocketPositions || rocketPositions.length === 0) { console.warn("Brak rocketPositions."); return; }
-            const launchPointData = rocketPositions.find(p => p.side === side); if (!launchPointData) { console.warn(`Brak pozycji dla rakiety: ${side}`); return; }
-            lastRocketFireTime = now;
-            const localLaunchPosition = launchPointData.position; const worldLaunchPosition = localLaunchPosition.clone().applyMatrix4(plane.matrixWorld);
-            const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion).normalize();
-            const rocketGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2.5, 8); const rocketMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6, roughness: 0.4 }); const rocketMesh = new THREE.Mesh(rocketGeometry, rocketMaterial); rocketMesh.position.copy(worldLaunchPosition); rocketMesh.quaternion.copy(plane.quaternion);
-            const trailGeometry = new THREE.SphereGeometry(0.4, 8, 8); const trailMaterial = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }); const trailMesh = new THREE.Mesh(trailGeometry, trailMaterial); const trailOffset = new THREE.Vector3(0, 0, -1.5); trailMesh.position.copy(trailOffset); rocketMesh.add(trailMesh);
-            const rocketId = `${localPlayerId}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-            const rocketData = { id: rocketId, mesh: rocketMesh, trailMesh: trailMesh, velocity: forwardDirection.clone().multiplyScalar(ROCKET_SPEED), ownerId: localPlayerId, damage: ROCKET_DAMAGE, life: 0, side: side };
-            scene.add(rocketMesh); rockets.push(rocketData);
-            sendWebSocketMessage({ type: 'fire_rocket', id: rocketId, ownerId: localPlayerId, side: side, position: { x: worldLaunchPosition.x, y: worldLaunchPosition.y, z: worldLaunchPosition.z }, velocity: { x: rocketData.velocity.x, y: rocketData.velocity.y, z: rocketData.velocity.z }, damage: ROCKET_DAMAGE });
-            console.log(`Wystrzelono rakietę ${rocketId} ze strony ${side}`);
-        }
+        function fireGuns(){ if(!plane||!plane.userData.isAlive||!plane.visible||!gameStarted)return; const gunPositions=plane.userData.gunPositions; if(!gunPositions||gunPositions.length===0){console.warn("Brak gunPositions.");return;} gunPositions.forEach(lp=>{ const wg=lp.clone().applyMatrix4(plane.matrixWorld); const fd=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize(); const bG=new THREE.SphereGeometry(0.25, 6, 6); const bM=new THREE.MeshBasicMaterial({color:0xffff00}); const bMh=new THREE.Mesh(bG,bM); bMh.position.copy(wg); const bD = { mesh: bMh, velocity: fd.clone().multiplyScalar(BULLET_SPEED), ownerId: localPlayerId, damage: BULLET_DAMAGE, life: 0 }; scene.add(bMh); bullets.push(bD); }); }
+        function fireRocket(side) { if(!plane || !plane.userData.isAlive || !plane.visible || !gameStarted) return; const now = Date.now(); if (now - lastRocketFireTime < ROCKET_COOLDOWN) { return; } const rocketPositions = plane.userData.rocketPositions; if (!rocketPositions || rocketPositions.length === 0) { console.warn("Brak rocketPositions."); return; } const launchPointData = rocketPositions.find(p => p.side === side); if (!launchPointData) { console.warn(`Brak pozycji dla rakiety: ${side}`); return; } lastRocketFireTime = now; const localLaunchPosition = launchPointData.position; const worldLaunchPosition = localLaunchPosition.clone().applyMatrix4(plane.matrixWorld); const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion).normalize(); const rG=new THREE.CylinderGeometry(0.3, 0.3, 2.5, 8); const rM=new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6, roughness: 0.4 }); const rMh=new THREE.Mesh(rG, rM); rMh.position.copy(worldLaunchPosition); rMh.quaternion.copy(plane.quaternion); const tG=new THREE.SphereGeometry(0.4, 8, 8); const tM=new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }); const tMh=new THREE.Mesh(tG, tM); const tO=new THREE.Vector3(0, 0, -1.5); tMh.position.copy(tO); rMh.add(tMh); const rId = `${localPlayerId}-${Date.now()}-${Math.random().toString(16).slice(2)}`; const rD = { id: rId, mesh: rMh, trailMesh: tMh, velocity: forwardDirection.clone().multiplyScalar(ROCKET_SPEED), ownerId: localPlayerId, damage: ROCKET_DAMAGE, life: 0, side: side }; scene.add(rMh); rockets.push(rD); sendWebSocketMessage({ type: 'fire_rocket', id: rId, ownerId: localPlayerId, side: side, position: { x: worldLaunchPosition.x, y: worldLaunchPosition.y, z: worldLaunchPosition.z }, velocity: { x: rD.velocity.x, y: rD.velocity.y, z: rD.velocity.z }, damage: ROCKET_DAMAGE }); console.log(`Wystrzelono rakietę ${rId} ${side}`); }
         function removeRocket(rocket) { if (!rocket) return; if (rocket.mesh) scene.remove(rocket.mesh); const index = rockets.indexOf(rocket); if (index > -1) { rockets.splice(index, 1); } }
-        function spawnOpponentRocket(data) {
-             if (!opponentPlanes[data.ownerId] && data.ownerId !== localPlayerId) { console.warn(`Rakieta od nieznanego gracza ${data.ownerId}`); }
-             console.log(`Tworzenie rakiety ${data.id} od gracza ${data.ownerId}`);
-            const rG = new THREE.CylinderGeometry(0.3, 0.3, 2.5, 8); const rM = new THREE.MeshStandardMaterial({ color: 0xcc8888, metalness: 0.6, roughness: 0.4 }); const rMh = new THREE.Mesh(rG, rM); rMh.position.set(data.position.x, data.position.y, data.position.z);
-            const tG = new THREE.SphereGeometry(0.4, 8, 8); const tM = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }); const tMh = new THREE.Mesh(tG, tM); const tO = new THREE.Vector3(0, 0, -1.5); tMh.position.copy(tO); rMh.add(tMh);
-            const vel = new THREE.Vector3(data.velocity.x, data.velocity.y, data.velocity.z); rMh.lookAt(rMh.position.clone().add(vel));
-            const rD = { id: data.id, mesh: rMh, trailMesh: tMh, velocity: vel, ownerId: data.ownerId, damage: data.damage || ROCKET_DAMAGE, life: 0, side: data.side };
-            scene.add(rMh); rockets.push(rD);
-        }
-        function checkCollisions(targetPlane){ if(!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible||!gameStarted)return; const pRad=targetPlane.userData.collisionRadius; const obstacles=[...buildings,...carriers]; for(const o of obstacles){ if(!o.parent)continue; const oRad=o.userData.radius; const dSq=targetPlane.position.distanceToSquared(o.position); const minDSq=(pRad+oRad)**2; const hDiff=Math.abs(targetPlane.position.y-o.position.y); const vThresh=o.userData.isCarrier?20:(o.geometry.parameters.height/2+pRad); if(dSq<minDSq&&hDiff<vThresh){ console.log(`Kolizja: ${targetPlane.userData.id} z ${o.userData.isCarrier?'lotniskowcem':'budynkiem'}`); const dist=Math.sqrt(dSq); const overlap=(pRad+oRad)-dist; const pushDir=targetPlane.position.clone().sub(o.position).normalize(); targetPlane.position.add(pushDir.multiplyScalar(overlap*1.05)); if(targetPlane===plane&&targetPlane.userData.id===localPlayerId){ const damage=o.userData.isCarrier?MAX_HEALTH:MAX_HEALTH*2; createExplosion(targetPlane.position.clone()); takeDamage(plane,damage,o.userData.isCarrier?'Carrier':'Building','crash');}}}}
-        function checkPlayerCollisions(localPlane){ if(!localPlane||!localPlane.userData.isAlive||!localPlane.visible)return; const localRadius=localPlane.userData.collisionRadius; for(const opponentId in opponentPlanes){ const oppData=opponentPlanes[opponentId]; if(!oppData||!oppData.plane||!oppData.plane.userData.isAlive||!oppData.plane.visible)continue; const opponentPlane=oppData.plane; const opponentRadius=opponentPlane.userData.collisionRadius; const combinedRadius=localRadius+opponentRadius; const distanceSq=localPlane.position.distanceToSquared(opponentPlane.position); if(distanceSq<combinedRadius*combinedRadius){ console.log(`Kolizja między graczem ${localPlayerId} a ${opponentId}!`); const collisionPoint=localPlane.position.clone().lerp(opponentPlane.position,0.5); createExplosion(collisionPoint); takeDamage(localPlane,MAX_HEALTH*2,`Collision with ${opponentId}`, 'collision'); sendWebSocketMessage({type:'player_collision', otherPlayerId: parseInt(opponentId)}); break;}}}
+        function spawnOpponentRocket(data) { if (!opponentPlanes[data.ownerId] && data.ownerId !== localPlayerId) { console.warn(`Rakieta od nieznanego ${data.ownerId}`); } console.log(`Tworzenie rakiety ${data.id} od ${data.ownerId}`); const rG=new THREE.CylinderGeometry(0.3, 0.3, 2.5, 8); const rM=new THREE.MeshStandardMaterial({ color: 0xcc8888, metalness: 0.6, roughness: 0.4 }); const rMh=new THREE.Mesh(rG, rM); rMh.position.set(data.position.x, data.position.y, data.position.z); const tG=new THREE.SphereGeometry(0.4, 8, 8); const tM=new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }); const tMh=new THREE.Mesh(tG, tM); const tO=new THREE.Vector3(0, 0, -1.5); tMh.position.copy(tO); rMh.add(tMh); const vel=new THREE.Vector3(data.velocity.x, data.velocity.y, data.velocity.z); rMh.lookAt(rMh.position.clone().add(vel)); const rD={ id: data.id, mesh: rMh, trailMesh: tMh, velocity: vel, ownerId: data.ownerId, damage: data.damage || ROCKET_DAMAGE, life: 0, side: data.side }; scene.add(rMh); rockets.push(rD); }
+        function checkCollisions(targetPlane){ if(!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible||!gameStarted)return; const pRad=targetPlane.userData.collisionRadius; const obstacles=[...buildings,...carriers]; for(const o of obstacles){ if(!o.parent)continue; const oRad=o.userData.radius; const dSq=targetPlane.position.distanceToSquared(o.position); const minDSq=(pRad+oRad)**2; const hDiff=Math.abs(targetPlane.position.y-o.position.y); const vThresh=o.userData.isCarrier?20:(o.geometry.parameters.height/2+pRad); if(dSq<minDSq&&hDiff<vThresh){ const damage=o.userData.isCarrier?MAX_HEALTH:MAX_HEALTH*2; takeDamage(targetPlane,damage,o.userData.isCarrier?'Carrier':'Building','crash');}}} // Przeniesiono logikę obrażeń do takeDamage
+        function checkPlayerCollisions(localPlane){ if(!localPlane||!localPlane.userData.isAlive||!localPlane.visible)return; const localRadius=localPlane.userData.collisionRadius; for(const opponentId in opponentPlanes){ const oppData=opponentPlanes[opponentId]; if(!oppData||!oppData.plane||!oppData.plane.userData.isAlive||!oppData.plane.visible)continue; const opponentPlane=oppData.plane; const opponentRadius=opponentPlane.userData.collisionRadius; const combinedRadius=localRadius+opponentRadius; const distanceSq=localPlane.position.distanceToSquared(opponentPlane.position); if(distanceSq<combinedRadius*combinedRadius){ takeDamage(localPlane,MAX_HEALTH*2,`Collision with ${opponentId}`, 'collision'); sendWebSocketMessage({type:'player_collision', otherPlayerId: parseInt(opponentId)}); break;}}} // Przeniesiono logikę obrażeń do takeDamage
         function removeBuilding(b){ scene.remove(b); const i=buildings.indexOf(b); if(i>-1) buildings.splice(i,1); }
+        // ZAKTUALIZOWANA: Wywołuje handlePlayerDeath z parametrami
         function takeDamage(targetPlane, amount, killerIdOrReason, weaponType = 'unknown'){
-             if (!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible)return; const previousHealth=targetPlane.userData.health; targetPlane.userData.health=Math.max(0,targetPlane.userData.health-amount);
-             console.log(`Gracz ${targetPlane.userData.id} otrzymał ${amount} obr. od ${killerIdOrReason} [${weaponType}]. HP: ${targetPlane.userData.health}`);
-             if(targetPlane.userData.health<=0&&previousHealth>0){ console.log(`Gracz ${targetPlane.userData.id} zginął.`); if(targetPlane===plane && targetPlane.userData.id === localPlayerId){ handlePlayerDeath(targetPlane); let killerPlayerId=null; if(typeof killerIdOrReason==='number'||(typeof killerIdOrReason==='string'&&!isNaN(parseInt(killerIdOrReason)))){killerPlayerId=parseInt(killerIdOrReason);}else if(typeof killerIdOrReason==='string'&&killerIdOrReason.startsWith('Collision with ')){killerPlayerId=parseInt(killerIdOrReason.split(' ')[2]);} sendWebSocketMessage({type:'i_died', killerId:killerPlayerId, weapon: weaponType}); } else { handleOpponentDeathVisuals(targetPlane); } }
+             if (!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible)return;
+             const previousHealth=targetPlane.userData.health;
+             targetPlane.userData.health=Math.max(0,targetPlane.userData.health-amount);
+             console.log(`Gracz ${targetPlane.userData.id} ${amount} obr. od ${killerIdOrReason} [${weaponType}]. HP: ${targetPlane.userData.health}`);
+             if(targetPlane.userData.health<=0&&previousHealth>0){
+                 if(targetPlane===plane && targetPlane.userData.id === localPlayerId){
+                     // Przekaż przyczynę i typ broni do handlePlayerDeath
+                     handlePlayerDeath(targetPlane, killerIdOrReason, weaponType);
+                     let killerPlayerId=null;
+                     if(typeof killerIdOrReason==='number'||(typeof killerIdOrReason==='string'&&!isNaN(parseInt(killerIdOrReason)))){killerPlayerId=parseInt(killerIdOrReason);}else if(typeof killerIdOrReason==='string'&&killerIdOrReason.startsWith('Collision with ')){killerPlayerId=parseInt(killerIdOrReason.split(' ')[2]);}
+                     sendWebSocketMessage({type:'i_died', killerId:killerPlayerId, weapon: weaponType});
+                 } else { // Śmierć przeciwnika (obsłużona przez serwer)
+                     handleOpponentDeathVisuals(targetPlane);
+                 }
+             }
             if(targetPlane === plane){updateHealthBar(plane,localHealthFill);}
         }
-        function handlePlayerDeath(deadPlane){ if(!deadPlane.userData.isAlive && !deadPlane.visible) return; console.log(`Obsługa lokalnej śmierci gracza ${deadPlane.userData.id}`); deadPlane.userData.isAlive=false; deadPlane.visible=false; localHealthBar.style.display='none'; if(crosshairElement) crosshairElement.style.display = 'none'; if(horizonContainerElement) horizonContainerElement.style.display = 'none'; keys={}; touchPitchInput=0; touchRollInput=0; }
-        function handleOpponentDeathVisuals(deadOpponentPlane){ console.log(`Wizualne efekty śmierci przeciwnika ${deadOpponentPlane.userData.id}`); deadOpponentPlane.visible=false; const oD=opponentPlanes[deadOpponentPlane.userData.id]; if(oD&&oD.healthBar){oD.healthBar.style.display='none';}}
+        // ZAKTUALIZOWANA: Wyświetla komunikat o śmierci
+        function handlePlayerDeath(deadPlane, reason, weaponType){
+             if(!deadPlane.userData.isAlive && !deadPlane.visible) return;
+             console.log(`Lokalna śmierć: ${deadPlane.userData.id}, Przyczyna: ${reason}, Broń: ${weaponType}`);
+             deadPlane.userData.isAlive=false; deadPlane.visible=false;
+             localHealthBar.style.display='none';
+             if(crosshairElement) crosshairElement.style.display = 'none';
+             if(horizonContainerElement) horizonContainerElement.style.display = 'none';
+             keys={}; touchPitchInput=0; touchRollInput=0;
+
+             // NOWE: Wyświetlanie komunikatu
+             if (deathMessageElement) {
+                 let messageText = "Zginąłeś!"; // Domyślny
+                 if (weaponType === 'crash' || reason === 'Ground' || reason === 'Building' || reason === 'Carrier') {
+                     messageText = "Rozbiłeś się!";
+                 } else if (typeof reason === 'number' || (typeof reason === 'string' && reason.startsWith('Collision with')) || weaponType === 'bullet' || weaponType === 'rocket' || weaponType === 'collision') {
+                     messageText = "Zostałeś zestrzelony!";
+                 } // Można dodać więcej warunków
+
+                 deathMessageElement.textContent = messageText;
+                 deathMessageElement.style.display = 'block';
+             }
+        }
+        function handleOpponentDeathVisuals(deadOpponentPlane){ console.log(`Wizualna śmierć ${deadOpponentPlane.userData.id}`); deadOpponentPlane.visible=false; const oD=opponentPlanes[deadOpponentPlane.userData.id]; if(oD&&oD.healthBar){oD.healthBar.style.display='none';}}
 
         // --- Obsługa Sieciowa (Przeciwnicy) ---
-         function handleOpponentUpdate(playerId, playerData){
-            let opponentData = opponentPlanes[playerId]; const isJoining = !opponentData; const receivedPlaneType = playerData.planeType || 'airplane';
-            if(isJoining){ console.log(`Dodawanie nowego przeciwnika: ${playerId}, Typ: ${receivedPlaneType}`); const creatorFunction = planeCreators[receivedPlaneType] || planeCreators.airplane; const opponentPlane = creatorFunction(0x0055ff); if (!opponentPlane.userData.gunPositions) opponentPlane.userData.gunPositions = [new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]; if (!opponentPlane.userData.rocketPositions) opponentPlane.userData.rocketPositions = [{side: 'left', position: new THREE.Vector3(-2, -0.5, 1)}, {side: 'right', position: new THREE.Vector3(2, -0.5, 1)}]; opponentPlane.rotation.order='YXZ'; opponentPlane.userData.id = parseInt(playerId); opponentPlane.userData.collisionRadius = 5; opponentPlane.userData.maxHealth = MAX_HEALTH; opponentPlane.userData.planeType = receivedPlaneType; const healthBarElement = createHealthBarElement(); document.body.appendChild(healthBarElement); opponentData = { plane: opponentPlane, healthBar: healthBarElement, targetPos: new THREE.Vector3(), targetQuat: new THREE.Quaternion(), planeType: receivedPlaneType }; opponentPlanes[playerId] = opponentData; opponentData.targetPos.set(playerData.x, playerData.y, playerData.z); const initialRotation = new THREE.Euler(playerData.rotX || 0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'); opponentData.targetQuat.setFromEuler(initialRotation); opponentPlane.position.copy(opponentData.targetPos); opponentPlane.quaternion.copy(opponentData.targetQuat); scene.add(opponentPlane);
-            } else { if (opponentData.planeType !== receivedPlaneType) { console.log(`Przeciwnik ${playerId} zmienił typ samolotu z ${opponentData.planeType} na ${receivedPlaneType}. Wymiana modelu.`); scene.remove(opponentData.plane); const creatorFunction = planeCreators[receivedPlaneType] || planeCreators.airplane; const newOpponentPlane = creatorFunction(0x0055ff); if (!newOpponentPlane.userData.gunPositions) newOpponentPlane.userData.gunPositions = [new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]; if (!newOpponentPlane.userData.rocketPositions) newOpponentPlane.userData.rocketPositions = [{side: 'left', position: new THREE.Vector3(-2, -0.5, 1)}, {side: 'right', position: new THREE.Vector3(2, -0.5, 1)}]; newOpponentPlane.rotation.order = 'YXZ'; newOpponentPlane.userData.id = parseInt(playerId); newOpponentPlane.userData.collisionRadius = 5; newOpponentPlane.userData.maxHealth = MAX_HEALTH; newOpponentPlane.userData.planeType = receivedPlaneType; opponentData.plane = newOpponentPlane; opponentData.planeType = receivedPlaneType; newOpponentPlane.position.copy(opponentData.targetPos); newOpponentPlane.quaternion.copy(opponentData.targetQuat); scene.add(newOpponentPlane); } }
-            const opponentPlane = opponentData.plane; const healthBar = opponentData.healthBar; const wasAlive = opponentPlane.userData.isAlive; const isNowAlive = playerData.isAlive;
-            opponentData.targetPos.set(playerData.x, playerData.y, playerData.z); const targetRotation = new THREE.Euler(playerData.rotX || 0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'); opponentData.targetQuat.setFromEuler(targetRotation);
-            opponentPlane.userData.health = playerData.health; opponentPlane.userData.kills = playerData.kills; opponentPlane.userData.isAlive = isNowAlive;
-            if(isNowAlive){ opponentPlane.visible = true; if(healthBar){healthBar.style.display='block';} if(!wasAlive){ console.log(`Przeciwnik ${playerId} pojawił się/odrodził.`); opponentPlane.position.copy(opponentData.targetPos); opponentPlane.quaternion.copy(opponentData.targetQuat); } } else { opponentPlane.visible = false; if(healthBar){healthBar.style.display='none';} if(wasAlive){ console.log(`Przeciwnik ${playerId} zginął.`); } }
-        }
-        function removeOpponent(playerId){ console.log("Usuwanie przeciwnika:",playerId); const o=opponentPlanes[playerId]; if(o){if(o.plane)scene.remove(o.plane); if(o.healthBar&&o.healthBar.parentNode){o.healthBar.parentNode.removeChild(o.healthBar);} delete opponentPlanes[playerId];}} // Poprawka: delete opponentPlanes[playerId]
+         function handleOpponentUpdate(playerId, playerData){ let opponentData = opponentPlanes[playerId]; const isJoining = !opponentData; const receivedPlaneType = playerData.planeType || 'airplane'; if(isJoining){ console.log(`Dodawanie opp: ${playerId}, Typ: ${receivedPlaneType}`); const creatorFunction = planeCreators[receivedPlaneType] || planeCreators.airplane; const opponentPlane = creatorFunction(0x0055ff); if (!opponentPlane.userData.gunPositions) opponentPlane.userData.gunPositions = [new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]; if (!opponentPlane.userData.rocketPositions) opponentPlane.userData.rocketPositions = [{side: 'left', position: new THREE.Vector3(-2, -0.5, 1)}, {side: 'right', position: new THREE.Vector3(2, -0.5, 1)}]; opponentPlane.rotation.order='YXZ'; opponentPlane.userData.id = parseInt(playerId); opponentPlane.userData.collisionRadius = 5; opponentPlane.userData.maxHealth = MAX_HEALTH; opponentPlane.userData.planeType = receivedPlaneType; const healthBarElement = createHealthBarElement(); document.body.appendChild(healthBarElement); opponentData = { plane: opponentPlane, healthBar: healthBarElement, targetPos: new THREE.Vector3(), targetQuat: new THREE.Quaternion(), planeType: receivedPlaneType }; opponentPlanes[playerId] = opponentData; opponentData.targetPos.set(playerData.x, playerData.y, playerData.z); const initialRotation = new THREE.Euler(playerData.rotX || 0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'); opponentData.targetQuat.setFromEuler(initialRotation); opponentPlane.position.copy(opponentData.targetPos); opponentPlane.quaternion.copy(opponentData.targetQuat); scene.add(opponentPlane); } else { if (opponentData.planeType !== receivedPlaneType) { console.log(`Opp ${playerId} zmienił typ ${opponentData.planeType} -> ${receivedPlaneType}.`); scene.remove(opponentData.plane); const creatorFunction = planeCreators[receivedPlaneType] || planeCreators.airplane; const newOpponentPlane = creatorFunction(0x0055ff); if (!newOpponentPlane.userData.gunPositions) newOpponentPlane.userData.gunPositions = [new THREE.Vector3(1,0,1), new THREE.Vector3(-1,0,1)]; if (!newOpponentPlane.userData.rocketPositions) newOpponentPlane.userData.rocketPositions = [{side: 'left', position: new THREE.Vector3(-2, -0.5, 1)}, {side: 'right', position: new THREE.Vector3(2, -0.5, 1)}]; newOpponentPlane.rotation.order = 'YXZ'; newOpponentPlane.userData.id = parseInt(playerId); newOpponentPlane.userData.collisionRadius = 5; newOpponentPlane.userData.maxHealth = MAX_HEALTH; newOpponentPlane.userData.planeType = receivedPlaneType; opponentData.plane = newOpponentPlane; opponentData.planeType = receivedPlaneType; newOpponentPlane.position.copy(opponentData.targetPos); newOpponentPlane.quaternion.copy(opponentData.targetQuat); scene.add(newOpponentPlane); } } const opponentPlane = opponentData.plane; const healthBar = opponentData.healthBar; const wasAlive = opponentPlane.userData.isAlive; const isNowAlive = playerData.isAlive; opponentData.targetPos.set(playerData.x, playerData.y, playerData.z); const targetRotation = new THREE.Euler(playerData.rotX || 0, playerData.rotY || 0, playerData.rotZ || 0, 'YXZ'); opponentData.targetQuat.setFromEuler(targetRotation); opponentPlane.userData.health = playerData.health; opponentPlane.userData.kills = playerData.kills; opponentPlane.userData.isAlive = isNowAlive; if(isNowAlive){ opponentPlane.visible = true; if(healthBar){healthBar.style.display='block';} if(!wasAlive){ console.log(`Opp ${playerId} respawn/join.`); opponentPlane.position.copy(opponentData.targetPos); opponentPlane.quaternion.copy(opponentData.targetQuat); } } else { opponentPlane.visible = false; if(healthBar){healthBar.style.display='none';} if(wasAlive){ console.log(`Opp ${playerId} died.`); } } }
+        function removeOpponent(playerId){ console.log("Usuwanie opp:",playerId); const o=opponentPlanes[playerId]; if(o){if(o.plane)scene.remove(o.plane); if(o.healthBar&&o.healthBar.parentNode){o.healthBar.parentNode.removeChild(o.healthBar);} delete opponentPlanes[playerId];}}
 
         // --- UI i Elementy Pomocnicze ---
         function createHealthBarElement(){ const b=document.createElement('div'); b.className='healthBar'; const f=document.createElement('div'); b.appendChild(f); b.style.display='none'; return b;}
@@ -428,12 +380,7 @@
 
         // --- Event Listeners ---
         function onWindowResize(){ if(camera&&renderer){camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);} if(popupCamera&&popupRenderer&&planePresentationCanvas){const a=planePresentationCanvas.clientWidth/planePresentationCanvas.clientHeight; popupCamera.aspect=a; popupCamera.updateProjectionMatrix(); popupRenderer.setSize(planePresentationCanvas.clientWidth,planePresentationCanvas.clientHeight);}}
-        function onKeyDown(e){
-            if(!gameStarted || !plane || !plane.userData.isAlive)return; keys[e.key.toLowerCase()]=true;
-            if(e.key===' ' && !e.repeat) { fireGuns(); }
-            else if (e.key === 'Shift' && !e.repeat) { if (e.location === 1) { fireRocket('left'); } else if (e.location === 2) { fireRocket('right'); } else { console.log("Naciśnięto Shift bez lokalizacji."); /* fireRocket('left'); */ } }
-            else if(e.key==='Tab'){ e.preventDefault(); showRanking=true; updateRankingWebSocket(); rankingDiv.style.display='block'; }
-        }
+        function onKeyDown(e){ if(!gameStarted || !plane || !plane.userData.isAlive)return; keys[e.key.toLowerCase()]=true; if(e.key===' ' && !e.repeat) { fireGuns(); } else if (e.key === 'Shift' && !e.repeat) { if (e.location === 1) { fireRocket('left'); } else if (e.location === 2) { fireRocket('right'); } else { console.log("Shift bez lokalizacji."); } } else if(e.key==='Tab'){ e.preventDefault(); showRanking=true; updateRankingWebSocket(); rankingDiv.style.display='block'; } }
         function onKeyUp(e){ if(!gameStarted)return; keys[e.key.toLowerCase()]=false; if(e.key==='Tab'){showRanking=false; rankingDiv.style.display='none';}}
         function onTouchStart(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0){ const t=e.touches[0]; touchStartX=t.clientX; touchStartY=t.clientY; const sH=window.innerHeight; if(touchStartY<sH*0.4){touchPitchInput=1;}else if(touchStartY>sH*0.6){touchPitchInput=-1;}else{touchPitchInput=0;} touchRollInput=0;}}
         function onTouchMove(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0&&touchStartX!==null&&touchStartY!==null){ const t=e.touches[0]; const cX=t.clientX; const cY=t.clientY; const dX=cX-touchStartX; touchRollInput=Math.max(-1,Math.min(1,dX/(window.innerWidth*0.2))); const sH=window.innerHeight; if(cY<sH*0.4){touchPitchInput=1;}else if(cY>sH*0.6){touchPitchInput=-1;}else{touchPitchInput=0;}}}
