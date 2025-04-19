@@ -238,19 +238,25 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
+    <script src="planes.js"></script> <!-- Upewnij się, że ten plik jest dostępny -->
     <script>
-        // --- Konfiguracja (bez zmian) ---
+        // --- Konfiguracja ---
         const WEBSOCKET_URL = "ws://localhost:8080";
         const STATE_SEND_INTERVAL = 50;
         const INTERPOLATION_FACTOR = 15;
         const MAX_HEALTH = 100;
         const TILE_SIZE = 1000;
-        const ROLL_SPEED = 0.05;
-        const BASE_FORWARD_SPEED_MULTIPLIER = 1.5;
-        const BASE_VERTICAL_SPEED = 60.0;
-        const BASE_TURN_SPEED = 1.8;
-        const BASE_PROPELLER_SPEED_MULTIPLIER = 90;
         const CARRIER_DISTANCE = 1500;
+
+        // --- NOWE Stałe Kontroli Lotu ---
+        const PITCH_SPEED = 1.5;    // Prędkość obrotu góra/dół (wokół osi X)
+        const ROLL_SPEED = 2.5;     // Prędkość obrotu na boki (wokół osi Z)
+        const YAW_SPEED = 1.0;      // Prędkość obrotu lewo/prawo (wokół osi Y - ster kierunku)
+        const FORWARD_SPEED = 80.0; // Podstawowa prędkość do przodu
+        const BASE_PROPELLER_SPEED_MULTIPLIER = 90; // Bez zmian dla śmigła
+        const GROUND_EFFECT_ALTITUDE = 5; // Wysokość, poniżej której samolot jest spowalniany
+        const CAMERA_DISTANCE = 20; // Odległość kamery od samolotu
+        const CAMERA_HEIGHT = 5;   // Wysokość kamery nad samolotem
 
         // --- Zmienne Globalne ---
         let localPlayerId = null;
@@ -268,9 +274,12 @@
         let score = 0;
         const scoreDiv = document.getElementById('score');
         const tiles = [];
-        let touchY = null, touchStartX = null, swipeTurnDirection = 0;
-        let currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER;
-        let currentForwardSpeedMultiplier = BASE_FORWARD_SPEED_MULTIPLIER;
+        // Zaktualizowane zmienne dotykowe
+        let touchPitchInput = 0; // 0 = neutral, -1 = góra, 1 = dół
+        let touchRollInput = 0;  // Wartość od -1 do 1 bazująca na przesunięciu X
+        let touchStartX = null, touchStartY = null;
+
+        let currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER; // Dla animacji śmigła
         const localHealthBar = document.getElementById('localPlayerHealthBar');
         const localHealthFill = document.getElementById('localPlayerHealthFill');
         let minimapCanvas, minimapCtx;
@@ -281,28 +290,28 @@
         let lastSentState = {};
         let gameStarted = false; // Flaga informująca, czy gra się rozpoczęła
 
-        // --- Zmienne dla Popupu Wyboru Samolotu ---
+        // --- Zmienne dla Popupu Wyboru Samolotu (bez zmian) ---
         let popupScene, popupCamera, popupRenderer;
         let spadPreview, baronPreview, airplanePreview;
-        const previewPlanes = []; // Tablica modeli w popupie
-        let hoveredPlanePreview = null; // Model, nad którym jest myszka w popupie
+        const previewPlanes = [];
+        let hoveredPlanePreview = null;
         let popupAnimationId = null;
         const popupRaycaster = new THREE.Raycaster();
         const popupMouse = new THREE.Vector2();
-        let selectedPlaneType = 'airplane'; // Domyślny typ, zostanie nadpisany
+        let selectedPlaneType = 'airplane';
         const planeSelectionPopup = document.getElementById('planeSelectionPopup');
         const planePresentationCanvas = document.getElementById('planePresentationCanvas');
         const planeOptionsDiv = document.getElementById('planeOptions');
 
-        // --- Mapa funkcji tworzących samoloty ---
+        // --- Mapa funkcji tworzących samoloty (bez zmian) ---
         const planeCreators = {
             spad: createSPAD,
             redbaron: createRedBaron,
             airplane: createAirplane
         };
 
-        // --- Inicjalizacja ---
-        showPlaneSelectionPopup(); // Zaczynamy od popupu
+        // --- Inicjalizacja (bez zmian) ---
+        showPlaneSelectionPopup();
 
         function showPlaneSelectionPopup() {
             planeSelectionPopup.style.display = 'flex';
@@ -312,55 +321,32 @@
 
         function initPopupScene() {
             popupScene = new THREE.Scene();
-            popupScene.background = new THREE.Color(0x333344); // Tło dla popupu
-
+            popupScene.background = new THREE.Color(0x333344);
             const aspect = planePresentationCanvas.clientWidth / planePresentationCanvas.clientHeight;
             popupCamera = new THREE.PerspectiveCamera(50, aspect, 0.1, 100);
-            popupCamera.position.set(0, 2, 15); // Pozycja kamery w popupie
+            popupCamera.position.set(0, 2, 15);
             popupCamera.lookAt(0, 0, 0);
-
-            popupRenderer = new THREE.WebGLRenderer({
-                canvas: planePresentationCanvas,
-                antialias: true,
-                alpha: true // Przezroczyste tło renderera
-            });
+            popupRenderer = new THREE.WebGLRenderer({ canvas: planePresentationCanvas, antialias: true, alpha: true });
             popupRenderer.setSize(planePresentationCanvas.clientWidth, planePresentationCanvas.clientHeight);
             popupRenderer.setPixelRatio(window.devicePixelRatio);
-
-            // Oświetlenie dla popupu
             popupScene.add(new THREE.AmbientLight(0xffffff, 1.0));
             const pLight = new THREE.DirectionalLight(0xffffff, 1.5);
             pLight.position.set(5, 10, 7);
             popupScene.add(pLight);
 
-            // Tworzenie modeli preview
-            spadPreview = createSPAD(0xffffff); // Kolor nieistotny, model ma własne
-            spadPreview.position.x = -6;
-            spadPreview.userData.type = 'spad';
-            popupScene.add(spadPreview);
-            previewPlanes.push(spadPreview);
+            spadPreview = createSPAD(0xffffff);
+            spadPreview.position.x = -6; spadPreview.userData.type = 'spad';
+            popupScene.add(spadPreview); previewPlanes.push(spadPreview);
+            baronPreview = createRedBaron(0xff0000);
+            baronPreview.position.x = 0; baronPreview.userData.type = 'redbaron';
+            popupScene.add(baronPreview); previewPlanes.push(baronPreview);
+            airplanePreview = createAirplane(0x0055ff);
+            airplanePreview.position.x = 6; airplanePreview.userData.type = 'airplane';
+            popupScene.add(airplanePreview); previewPlanes.push(airplanePreview);
+            previewPlanes.forEach(p => p.scale.set(0.8, 0.8, 0.8));
 
-            baronPreview = createRedBaron(0xff0000); // Czerwony Baron
-            baronPreview.position.x = 0;
-            baronPreview.userData.type = 'redbaron';
-            popupScene.add(baronPreview);
-            previewPlanes.push(baronPreview);
-
-            airplanePreview = createAirplane(0x0055ff); // Niebieski generyczny
-            airplanePreview.position.x = 6;
-            airplanePreview.userData.type = 'airplane';
-            popupScene.add(airplanePreview);
-            previewPlanes.push(airplanePreview);
-
-            // Skalowanie modeli dla lepszej prezentacji w popupie
-             previewPlanes.forEach(p => p.scale.set(0.8, 0.8, 0.8));
-
-
-            // Listener myszy na canvasie popupu do rotacji
             planePresentationCanvas.addEventListener('mousemove', onPopupMouseMove, false);
             planePresentationCanvas.addEventListener('mouseleave', onPopupMouseLeave, false);
-
-            // Listener kliknięć na opcje wyboru
             planeOptionsDiv.addEventListener('click', onPlaneOptionClick);
         }
 
@@ -368,83 +354,42 @@
             const rect = planePresentationCanvas.getBoundingClientRect();
             popupMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             popupMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
             popupRaycaster.setFromCamera(popupMouse, popupCamera);
-            const intersects = popupRaycaster.intersectObjects(previewPlanes, true); // Sprawdź przecięcia z dziećmi
-
+            const intersects = popupRaycaster.intersectObjects(previewPlanes, true);
              if (intersects.length > 0) {
-                 // Znajdź główny obiekt samolotu (rodzica)
                  let topLevelObject = intersects[0].object;
-                 while (topLevelObject.parent && !previewPlanes.includes(topLevelObject)) {
-                     topLevelObject = topLevelObject.parent;
-                 }
-                 if (previewPlanes.includes(topLevelObject)) {
-                      hoveredPlanePreview = topLevelObject;
-                 } else {
-                     hoveredPlanePreview = null; // Trafiono coś, ale nie główny samolot?
-                 }
-            } else {
-                hoveredPlanePreview = null;
-            }
+                 while (topLevelObject.parent && !previewPlanes.includes(topLevelObject)) { topLevelObject = topLevelObject.parent; }
+                 hoveredPlanePreview = previewPlanes.includes(topLevelObject) ? topLevelObject : null;
+            } else { hoveredPlanePreview = null; }
         }
-
-         function onPopupMouseLeave(event) {
-             hoveredPlanePreview = null;
-         }
-
-
+         function onPopupMouseLeave(event) { hoveredPlanePreview = null; }
         function onPlaneOptionClick(event) {
             const optionDiv = event.target.closest('.planeOption');
             if (optionDiv && optionDiv.dataset.type) {
                 selectedPlaneType = optionDiv.dataset.type;
                 console.log(`Wybrano samolot: ${selectedPlaneType}`);
-
-                // Ukryj popup
                 planeSelectionPopup.style.display = 'none';
-
-                // Zatrzymaj animację popupu i wyczyść zasoby (opcjonalnie)
-                if (popupAnimationId) {
-                    cancelAnimationFrame(popupAnimationId);
-                    popupAnimationId = null;
-                }
-                // Można dodać czyszczenie sceny, renderera itp. jeśli potrzebne
-
-                // Rozpocznij główną grę
+                if (popupAnimationId) { cancelAnimationFrame(popupAnimationId); popupAnimationId = null; }
                 startGame();
             }
         }
-
         function animatePopup() {
             popupAnimationId = requestAnimationFrame(animatePopup);
-
             const rotationSpeed = 0.02;
-
             previewPlanes.forEach(p => {
                 if (p === hoveredPlanePreview) {
-                    // Rotuj samolot, nad którym jest kursor
                     p.rotation.y += rotationSpeed;
-                    // Opcjonalnie: lekki ruch góra/dół dla wyróżnienia
                     p.position.y = Math.sin(Date.now() * 0.002) * 0.1;
-                } else {
-                    // Zatrzymaj rotację innych samolotów (lub spowolnij do zera)
-                    // Dla prostoty, po prostu nie dodajemy rotacji, więc się zatrzyma
-                     p.position.y *= 0.95; // Wygładź powrót do pozycji Y=0
-                }
-                 // Każdy samolot może mieć lekką własną rotację, jeśli nie jest najechany
-                 // if (p !== hoveredPlanePreview) {
-                 //     p.rotation.y += 0.005; // Bardzo wolna rotacja bazowa
-                 // }
+                } else { p.position.y *= 0.95; }
             });
-
-
             popupRenderer.render(popupScene, popupCamera);
         }
 
 
         function startGame() {
-            if (gameStarted) return; // Zapobiegaj wielokrotnemu startowi
+            if (gameStarted) return;
             gameStarted = true;
-            scoreDiv.innerText = "Łączenie..."; // Zaktualizuj status
+            scoreDiv.innerText = "Łączenie...";
             initMainGame();
             connectWebSocket();
             animate(); // Rozpocznij główną pętlę gry
@@ -452,7 +397,6 @@
 
 
         function initMainGame() {
-            // Ta funkcja zawiera teraz kod z oryginalnej funkcji init(), ale bez tworzenia domyślnego samolotu i bez connectWebSocket()
             if (hasTouch) document.getElementById('fireButton').style.display = 'block'; else document.getElementById('fireButton').style.display = 'none';
             minimapCanvas = document.getElementById('minimapCanvas'); minimapCtx = minimapCanvas.getContext('2d'); minimapCanvas.width = MINIMAP_SIZE; minimapCanvas.height = MINIMAP_SIZE;
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x87ceeb);
@@ -463,13 +407,15 @@
             createTiles(); createBuildings(); createCarriers();
 
             // --- Tworzenie samolotu LOKALNEGO gracza na podstawie wyboru ---
-             const createFunc = planeCreators[selectedPlaneType] || planeCreators.airplane; // Użyj wybranej lub domyślnej
-             plane = createFunc(0xffffff); // Kolor tymczasowy, serwer nada właściwy stan
-             plane.visible = false; // Początkowo niewidoczny, aż serwer potwierdzi stan
+             const createFunc = planeCreators[selectedPlaneType] || planeCreators.airplane;
+             plane = createFunc(0xffffff);
+             plane.visible = false; // Początkowo niewidoczny
+             // Używajmy Quaternionów do orientacji, ale Euler do odczytu/zapisu dla sieci
+             plane.rotation.order = 'YXZ'; // Ustaw kolejność Euler dla spójności z siecią
              scene.add(plane);
             // -------------------------------------------------------------
 
-            localHealthBar.style.display = 'none'; // Ukryj pasek zdrowia na start
+            localHealthBar.style.display = 'none';
 
             // Event Listenery dla głównej gry
             window.addEventListener('resize', onWindowResize); window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
@@ -477,7 +423,7 @@
             const fireBtn = document.getElementById('fireButton'); fireBtn.addEventListener('touchstart', e => { e.preventDefault(); if (plane && plane.userData.isAlive) fireGuns(); });
         }
 
-        // --- WebSocket ---
+        // --- WebSocket (bez zmian w logice połączenia, tylko w przesyłanych danych) ---
         function connectWebSocket() {
             console.log("Attempting WebSocket connection...");
             socket = new WebSocket(WEBSOCKET_URL);
@@ -485,116 +431,82 @@
                 console.log("WebSocket Connected!");
                 isConnected = true;
                 scoreDiv.innerText = "Połączono!";
-                 // Wyślij typ wybranego samolotu DOPIERO po połączeniu
-                 if (localPlayerId) { // Jeśli ID już jest (np. szybkie połączenie)
+                 if (localPlayerId) { // Wyślij typ, jeśli ID już jest
                     sendWebSocketMessage({ type: 'select_plane', planeType: selectedPlaneType });
                  }
-                 // Główny interwał wysyłania stanu
                 setInterval(sendStateUpdateIfNeeded, STATE_SEND_INTERVAL);
             };
             socket.onmessage = (e) => {
-                try {
-                    handleServerMessage(JSON.parse(e.data));
-                } catch (err) {
-                    console.error("Parse Error:", err, e.data);
-                }
+                try { handleServerMessage(JSON.parse(e.data)); }
+                catch (err) { console.error("Parse Error:", err, e.data); }
             };
             socket.onclose = (e) => {
                  console.log("WebSocket Disconnected.", e.reason);
-                 isConnected = false;
-                 gameStarted = false; // Umożliw ponowny wybór i start
-                 localPlayerId = null;
-                 scoreDiv.innerText = "Rozłączono. Odśwież, aby zagrać."; // Informacja dla gracza
+                 isConnected = false; gameStarted = false; localPlayerId = null;
+                 scoreDiv.innerText = "Rozłączono. Odśwież.";
                  Object.keys(opponentPlanes).forEach(removeOpponent);
                  if (plane) plane.visible = false;
-                 localHealthBar.style.display = 'none';
-                 keys = {}; // Zresetuj klawisze
-                 // Nie próbuj automatycznie ponownie łączyć, lepiej niech użytkownik odświeży i wybierze samolot
-                // setTimeout(connectWebSocket, 5000);
+                 localHealthBar.style.display = 'none'; keys = {};
             };
             socket.onerror = (e) => {
-                console.error("WS Error:", e);
-                 scoreDiv.innerText = "Błąd połączenia. Odśwież.";
-                 gameStarted = false;
+                console.error("WS Error:", e); scoreDiv.innerText = "Błąd połączenia. Odśwież."; gameStarted = false;
             };
         }
 
         function sendWebSocketMessage(d) {
             if (isConnected && socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify(d));
-            } else {
-                 console.warn("Cannot send message: WebSocket not connected or not open.");
-            }
+            } else { console.warn("Cannot send message: WebSocket not connected or not open."); }
         }
 
-        function handleServerMessage(m) {
+        function handleServerMessage(m) { // Logika bez zmian, oprócz obsługi 'player_update'
             switch (m.type) {
                 case 'your_id':
-                    localPlayerId = m.id;
-                    console.log("My ID:", localPlayerId);
-                     // Wyślij typ samolotu TERAZ, gdy mamy ID
-                     sendWebSocketMessage({ type: 'select_plane', planeType: selectedPlaneType });
-                    setupLocalPlane(); // Ustaw podstawowe dane lokalnego samolotu
+                    localPlayerId = m.id; console.log("My ID:", localPlayerId);
+                    sendWebSocketMessage({ type: 'select_plane', planeType: selectedPlaneType });
+                    setupLocalPlane();
                     break;
                 case 'game_state':
                     console.log("Initial game state received");
                     const currentPlayers = Object.keys(m.state || {});
                     Object.keys(opponentPlanes).forEach(opponentId => {
-                        if (opponentId != localPlayerId && !currentPlayers.includes(String(opponentId))) {
-                             removeOpponent(opponentId);
-                        }
+                        if (opponentId != localPlayerId && !currentPlayers.includes(String(opponentId))) { removeOpponent(opponentId); }
                     });
                     for (const playerId in m.state) {
                          const pData = m.state[playerId];
-                        if (playerId == localPlayerId) {
-                            updateLocalPlayerFromServer(pData);
-                        } else {
-                            handleOpponentUpdate(playerId, pData); // Przekazuj pełne dane
-                        }
+                        if (playerId == localPlayerId) { updateLocalPlayerFromServer(pData); }
+                        else { handleOpponentUpdate(playerId, pData); } // Przekazuje teraz rotX
                     }
                     break;
                 case 'player_joined':
                     console.log("Player joined:", m.player.id, "Type:", m.player.planeType);
-                    if (m.player.id != localPlayerId) {
-                        handleOpponentUpdate(m.player.id, m.player); // Przekazuj pełne dane
-                    }
+                    if (m.player.id != localPlayerId) { handleOpponentUpdate(m.player.id, m.player); } // Przekazuje teraz rotX
                     break;
-                case 'player_update':
+                case 'player_update': // Tutaj dane pData zawierają teraz rotX
                      const pData = m.player;
-                    if (pData.id == localPlayerId) {
-                        updateLocalPlayerFromServer(pData);
-                    } else {
-                         handleOpponentUpdate(pData.id, pData); // Przekazuj pełne dane
-                    }
+                    if (pData.id == localPlayerId) { updateLocalPlayerFromServer(pData); }
+                    else { handleOpponentUpdate(pData.id, pData); } // Przekazuje teraz rotX
                     break;
                 case 'player_left':
-                    console.log("Player left:", m.id);
-                    removeOpponent(m.id);
-                    break;
+                    console.log("Player left:", m.id); removeOpponent(m.id); break;
                 case 'player_killed':
-                    console.log(`Kill confirmed: ${m.killerId} -> ${m.victimId}`);
-                    // Można dodać efekty wizualne/dźwiękowe
-                    break;
-                default:
-                     console.warn("Unknown message type:", m.type);
+                    console.log(`Kill confirmed: ${m.killerId} -> ${m.victimId}`); break;
+                default: console.warn("Unknown message type:", m.type);
             }
-            if (showRanking) {
-                updateRankingWebSocket();
-            }
+            if (showRanking) { updateRankingWebSocket(); }
         }
 
-        // Ustawia ID i podstawowe właściwości lokalnego samolotu
+        // Ustawia ID i podstawowe właściwości lokalnego samolotu (bez zmian)
         function setupLocalPlane() {
             if (!plane || localPlayerId === null) return;
             plane.userData.id = localPlayerId;
             plane.userData.maxHealth = MAX_HEALTH;
-            plane.userData.collisionRadius = 5;
-             plane.userData.planeType = selectedPlaneType; // Zapisz typ lokalnie
+            plane.userData.collisionRadius = 5; // Dostosuj jeśli trzeba
+             plane.userData.planeType = selectedPlaneType;
              console.log(`Local plane (${localPlayerId}) initialized as type: ${selectedPlaneType}`);
         }
 
-         // Aktualizuje stan lokalnego gracza na podstawie danych z serwera
-         // WAŻNE: Nie zmienia modelu samolotu, bo ten został już wybrany
+         // Aktualizuje stan lokalnego gracza na podstawie danych z serwera (bez zmian w logice, tylko w respawnie)
         function updateLocalPlayerFromServer(serverData) {
             if (!plane || localPlayerId === null) return;
             const wasAlive = plane.userData.isAlive;
@@ -604,47 +516,53 @@
             plane.userData.kills = serverData.kills;
             plane.userData.isAlive = isNowAlive;
 
-            // Ustaw pozycję i rotację z serwera TYLKO przy respawnie lub jeśli gra dopiero startuje
-             if ((isNowAlive && !wasAlive) || !plane.visible) { // Przy respawnie lub pierwszym pojawieniu się
-                 console.log("Setting local player position/rotation from server:", serverData.x, serverData.y, serverData.z, serverData.rotY);
+            if ((isNowAlive && !wasAlive) || !plane.visible) { // Przy respawnie lub pierwszym pojawieniu się
+                 console.log("Setting local player pos/rot from server:", serverData.x, serverData.y, serverData.z, serverData.rotY, serverData.rotX, serverData.rotZ);
                 if (serverData.x !== undefined) plane.position.x = serverData.x;
                 if (serverData.y !== undefined) plane.position.y = serverData.y;
                 if (serverData.z !== undefined) plane.position.z = serverData.z;
-                if (serverData.rotY !== undefined) plane.rotation.y = serverData.rotY;
-                 // Zresetuj przechył przy respawnie
-                 plane.rotation.z = 0;
+                // Ustaw orientację na podstawie danych z serwera przy respawnie
+                const initialRotation = new THREE.Euler(
+                    serverData.rotX || 0,
+                    serverData.rotY || 0,
+                    serverData.rotZ || 0,
+                    'YXZ' // Ważne: użyj tej samej kolejności co przy wysyłaniu/odbieraniu
+                );
+                plane.setRotationFromEuler(initialRotation);
+                 // Ustaw też quaternion na wszelki wypadek
+                 plane.quaternion.setFromEuler(initialRotation);
+                 console.log("Respawned quaternion:", plane.quaternion);
             }
 
             if (isNowAlive) {
-                plane.visible = true; // Upewnij się, że samolot jest widoczny
-                localHealthBar.style.display = 'block'; // Pokaż pasek zdrowia
+                plane.visible = true;
+                localHealthBar.style.display = 'block';
                 if (!wasAlive) {
                      console.log("Local player respawned by server update.");
-                    // Zresetuj prędkość itp. przy respawnie
-                    currentForwardSpeedMultiplier = BASE_FORWARD_SPEED_MULTIPLIER;
-                    currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER;
                     keys = {}; // Zresetuj wciśnięte klawisze
+                    touchPitchInput = 0; // Zresetuj dotyk
+                    touchRollInput = 0;
                 }
                  updateHealthBar(plane, localHealthFill);
                  positionHealthBar(plane, localHealthBar);
-            } else if (wasAlive) { // Został zabity
+            } else if (wasAlive) {
                 console.log("Local player killed by server update.");
-                handlePlayerDeath(plane); // Obsłuż śmierć lokalnie (ukrycie itp.)
+                handlePlayerDeath(plane);
             }
         }
 
-        // Wysyła stan lokalnego gracza (jeśli żyje i się zmienił)
+        // Wysyła stan lokalnego gracza - TERAZ WYSYŁA rotX, rotY, rotZ
         function sendStateUpdateIfNeeded() {
-             // Nie wysyłaj stanu, dopóki nie mamy ID i samolot nie jest widoczny/aktywny
             if (!isConnected || !plane || !plane.userData.isAlive || !plane.visible || localPlayerId === null) return;
 
             const cS = {
                 x: parseFloat(plane.position.x.toFixed(2)),
                 y: parseFloat(plane.position.y.toFixed(2)),
                 z: parseFloat(plane.position.z.toFixed(2)),
-                rotY: parseFloat(plane.rotation.y.toFixed(3)),
-                rotZ: parseFloat(plane.rotation.z.toFixed(3))
-                // planeType jest wysyłany tylko raz przy wyborze
+                // Używamy plane.rotation (Euler) do wysyłania, bo jest łatwiejszy do serializacji
+                rotX: parseFloat(plane.rotation.x.toFixed(3)), // Pochylenie
+                rotY: parseFloat(plane.rotation.y.toFixed(3)), // Odchylenie
+                rotZ: parseFloat(plane.rotation.z.toFixed(3))  // Przechył
             };
             if (JSON.stringify(cS) !== JSON.stringify(lastSentState)) {
                 sendWebSocketMessage({ type: 'update_state', state: cS });
@@ -653,724 +571,222 @@
         }
 
 
-        // --- Pętla Główna Gry ---
+        // --- Pętla Główna Gry --- ZMIENIONA LOGIKA STEROWANIA
         function animate(time) {
-             // Pętla główna startuje dopiero po inicjalizacji gry
              if (!gameStarted) return;
-
             requestAnimationFrame(animate);
             const deltaTime = Math.min(clock.getDelta(), 0.1); // Ogranicz deltaTime
 
-            // --- Sterowanie Lokalnym Graczem ---
-            if (plane && plane.userData.isAlive && plane.visible) { // Sprawdzaj też widoczność
-                const turnSpeed = BASE_TURN_SPEED;
-                const verticalSpeed = BASE_VERTICAL_SPEED;
-                let currentBaseForwardSpeed = BASE_VERTICAL_SPEED;
+            // --- Sterowanie Lokalnym Graczem (NOWA LOGIKA) ---
+            if (plane && plane.userData.isAlive && plane.visible) {
+                let pitchDelta = 0; // Zmiana pochylenia
+                let rollDelta = 0;  // Zmiana przechyłu
+                let yawDelta = 0;   // Zmiana odchylenia
 
-                // Sterowanie góra/dół
-                let moveUp = keys['arrowup'] || keys['w']; let moveDown = keys['arrowdown'] || keys['s'];
-                if (touchY !== null) { const sH = window.innerHeight; if (touchY < sH * 0.4) moveUp = true; else if (touchY > sH * 0.6) moveDown = true; }
-                if (moveUp) plane.position.y += verticalSpeed * deltaTime;
-                if (moveDown) plane.position.y -= verticalSpeed * deltaTime;
+                // --- Odczyt Sterowania (Klawiatura) ---
+                // Pitch (Góra/Dół)
+                if (keys['arrowup'] || keys['w']) pitchDelta -= PITCH_SPEED * deltaTime;
+                if (keys['arrowdown'] || keys['s']) pitchDelta += PITCH_SPEED * deltaTime;
+                // Roll (Lewo/Prawo)
+                if (keys['arrowleft'] || keys['a']) rollDelta += ROLL_SPEED * deltaTime;
+                if (keys['arrowright'] || keys['d']) rollDelta -= ROLL_SPEED * deltaTime;
+                // Yaw (Ster kierunku)
+                if (keys['q']) yawDelta += YAW_SPEED * deltaTime;
+                if (keys['e']) yawDelta -= YAW_SPEED * deltaTime;
 
-                // Sterowanie lewo/prawo i przechył
-                const left = keys['arrowleft'] || keys['a'];
-                const right = keys['arrowright'] || keys['d'];
-                let targetRoll = 0;
-
-                if (left) {
-                    plane.rotation.y += turnSpeed * deltaTime;
-                    targetRoll = -Math.PI / 5;
-                }
-                if (right) {
-                    plane.rotation.y -= turnSpeed * deltaTime;
-                    targetRoll = Math.PI / 5;
-                }
-                if (Math.abs(swipeTurnDirection) > 1) {
-                    const swipeSensitivity = 0.15;
-                    plane.rotation.y -= swipeTurnDirection * swipeSensitivity * deltaTime;
-                    targetRoll = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, swipeTurnDirection * swipeSensitivity * 0.5));
-                    swipeTurnDirection *= (1 - 5 * deltaTime);
+                // --- Odczyt Sterowania (Dotyk) ---
+                if (hasTouch) {
+                    // Pitch (Góra/Dół ekranu)
+                    if (touchPitchInput !== 0) {
+                        pitchDelta += touchPitchInput * PITCH_SPEED * deltaTime; // Dodajemy, bo -1 to góra
+                    }
+                    // Roll (Przesunięcie palcem w poziomie)
+                    if (touchRollInput !== 0) {
+                        rollDelta -= touchRollInput * ROLL_SPEED * deltaTime * 1.5; // Mnożnik dla czułości dotyku
+                    }
+                    // Można dodać przyciski dla Yaw na dotyku, jeśli potrzebne
                 }
 
-                plane.rotation.z += (targetRoll - plane.rotation.z) * ROLL_SPEED * 60 * deltaTime;
 
-                // Spowolnienie/Przyspieszenie
-                if (plane.position.y <= 3) {
-                    currentPropellerSpeedMultiplier = Math.max(0, currentPropellerSpeedMultiplier * (1 - 3 * deltaTime));
-                    currentForwardSpeedMultiplier = Math.max(0, currentForwardSpeedMultiplier * (1 - 3 * deltaTime));
-                } else {
-                    currentPropellerSpeedMultiplier += (BASE_PROPELLER_SPEED_MULTIPLIER - currentPropellerSpeedMultiplier) * 5 * deltaTime;
-                    currentForwardSpeedMultiplier += (BASE_FORWARD_SPEED_MULTIPLIER - currentForwardSpeedMultiplier) * 5 * deltaTime;
-                }
+                // --- Zastosowanie Rotacji ---
+                // Obracamy wokół lokalnych osi samolotu
+                if (Math.abs(pitchDelta) > 0.001) plane.rotateX(pitchDelta);
+                if (Math.abs(rollDelta) > 0.001) plane.rotateZ(rollDelta);
+                if (Math.abs(yawDelta) > 0.001) plane.rotateY(yawDelta);
 
-                // Śmigło
-                if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; }
+                // Ograniczenie rotacji X i Z (opcjonalne, aby uniknąć nieskończonych pętli/beczek jeśli niechciane)
+                // plane.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, plane.rotation.x)); // Ogranicza pitch
+                // plane.rotation.z = Math.max(-Math.PI, Math.min(Math.PI, plane.rotation.z)); // Ogranicza roll
 
-                // Ruch do przodu
+
+                // --- Ruch do przodu ---
+                // Zawsze w kierunku lokalnej osi Z samolotu (kierunek "nos")
                 const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion);
-                const forwardMoveThisFrame = currentBaseForwardSpeed * currentForwardSpeedMultiplier * deltaTime;
+
+                // Efekt ziemi - spowolnienie blisko ziemi
+                let currentForwardSpeed = FORWARD_SPEED;
+                if (plane.position.y < GROUND_EFFECT_ALTITUDE) {
+                    // Proporcjonalne spowolnienie im niżej jesteśmy
+                    const factor = Math.max(0, plane.position.y / GROUND_EFFECT_ALTITUDE);
+                    currentForwardSpeed *= factor;
+                     // Zmniejsz prędkość śmigła wizualnie
+                     currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER * factor;
+                } else {
+                    // Przywróć normalną prędkość śmigła
+                    currentPropellerSpeedMultiplier += (BASE_PROPELLER_SPEED_MULTIPLIER - currentPropellerSpeedMultiplier) * 5 * deltaTime;
+                }
+
+                const forwardMoveThisFrame = currentForwardSpeed * deltaTime;
                 plane.position.add(forwardDir.multiplyScalar(forwardMoveThisFrame));
 
-                // Ograniczenia i kolizje
-                if (plane.position.y < 2) plane.position.y = 2;
+                // --- Minimalna wysokość ---
+                if (plane.position.y < 2) {
+                    plane.position.y = 2;
+                    // Opcjonalnie: Dodaj odbicie lub zniszczenie przy uderzeniu w ziemię z dużą prędkością pionową
+                }
+
+                // --- Animacja Śmigła (bez zmian) ---
+                if (plane.userData.propeller) {
+                    plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime;
+                }
+
+                // --- Kolizje (bez zmian) ---
                 checkCollisions(plane);
 
-                // Aktualizacja paska zdrowia i pozycji UI
-                // updateHealthBar(plane, localHealthFill); // Już robione w updateLocalPlayerFromServer
+                // --- Aktualizacja UI ---
                 positionHealthBar(plane, localHealthBar);
+                // updateHealthBar jest teraz w updateLocalPlayerFromServer
             }
 
             // --- Aktualizacje Niezależne od Stanu Gracza ---
             updateTiles();
             updateBullets(deltaTime);
             updateOpponentPlanes(deltaTime);
-            updateCamera();
+            updateCamera(); // Kamera używa nowej pozycji i orientacji
             renderer.render(scene, camera);
             updateMinimap();
             updateScoreboard();
         }
 
-        // --- Funkcje Tworzące Elementy Sceny ---
-        // createSPAD, createRedBaron, createAirplane - bez zmian
-        // createTiles, createBuildings, createCarriers - bez zmian
-        function createSPAD(c) { // Argument 'c' jest teraz ignorowany na rzecz kolorów z obrazka
-            const a = new THREE.Group();
-
-            // --- Definicje Materiałów (kolory inspirowane zdjęciem) ---
-            const wingColor = 0x6B8E23; // OliveDrab (zieleń kamuflażu)
-            const fuselageColor = 0xBDB76B; // DarkKhaki (piaskowy/khaki kamuflażu / spód)
-            const cowlingColor = 0xA0522D; // Sienna (czerwonawa osłona silnika)
-            const propellerColor = 0x8B4513; // SaddleBrown (drewniane śmigło)
-            const interplaneStrutColor = 0x8B4513; // SaddleBrown (drewniane wsporniki międzyskrzydłowe)
-            const landingGearStrutColor = 0xBDB76B; // DarkKhaki (wsporniki podwozia, oś, płoza)
-            const gunColor = 0x222222; // Bardzo ciemny szary/czarny (karabiny)
-            const wheelColor = 0x111111; // Czarny (opony)
-            // const engineColor = 0x555555; // Opcjonalnie dla widocznych części silnika
-
-            const wingMaterial = new THREE.MeshStandardMaterial({ color: wingColor, roughness: 0.8, metalness: 0.1 });
-            const fuselageMaterial = new THREE.MeshStandardMaterial({ color: fuselageColor, roughness: 0.8, metalness: 0.1 });
-            const cowlingMaterial = new THREE.MeshStandardMaterial({ color: cowlingColor, roughness: 0.6, metalness: 0.2 });
-            const propellerMaterial = new THREE.MeshStandardMaterial({ color: propellerColor, roughness: 0.8 });
-            const interplaneStrutMaterial = new THREE.MeshStandardMaterial({ color: interplaneStrutColor, roughness: 0.85 });
-            const landingGearStrutMaterial = new THREE.MeshStandardMaterial({ color: landingGearStrutColor, roughness: 0.8 });
-            const gunMaterial = new THREE.MeshStandardMaterial({ color: gunColor, roughness: 0.5, metalness: 0.4 });
-            const wheelMaterial = new THREE.MeshStandardMaterial({ color: wheelColor, roughness: 0.8 });
-
-
-            // --- Kadłub (Fuselage) ---
-            const fuselageLength = 5.0;
-            const fuselageWidth = 1.2;
-            const fuselageHeight = 1.4;
-            const fuselageGeo = new THREE.BoxGeometry(fuselageWidth, fuselageHeight, fuselageLength);
-            const fuselage = new THREE.Mesh(fuselageGeo, fuselageMaterial); // Kolor khaki
-            fuselage.position.z = -fuselageLength / 2 + 0.5;
-            a.add(fuselage);
-
-            // --- Silnik / Osłona (Engine / Cowling) ---
-            const cowlingRadius = 0.7;
-            const cowlingLength = 0.8;
-            const cowlingGeo = new THREE.CylinderGeometry(cowlingRadius, cowlingRadius*0.9, cowlingLength, 16);
-            const cowling = new THREE.Mesh(cowlingGeo, cowlingMaterial); // Kolor sienna
-            cowling.rotation.x = Math.PI / 2;
-            cowling.position.set(0, 0, fuselage.position.z + fuselageLength / 2 + cowlingLength / 2 - 0.1);
-            a.add(cowling);
-
-            // --- Śmigło (Propeller) ---
-            const propeller = new THREE.Group();
-            propeller.position.z = cowling.position.z + cowlingLength / 2 + 0.1;
-            const bladeLength = 3.0;
-            const bladeWidth = 0.3;
-            const bladeThickness = 0.08;
-            const bladeGeo = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeThickness);
-            const blade1 = new THREE.Mesh(bladeGeo, propellerMaterial); // Kolor brązowy
-            propeller.add(blade1);
-            const blade2 = new THREE.Mesh(bladeGeo, propellerMaterial); // Kolor brązowy
-            blade2.rotation.z = Math.PI / 2;
-            propeller.add(blade2);
-            a.add(propeller);
-            a.userData.propeller = propeller;
-
-            // --- Skrzydła (Wings - Biplane) ---
-            const wingSpan = 8.5;
-            const wingChord = 1.6;
-            const wingThickness = 0.18;
-            const wingGeo = new THREE.BoxGeometry(wingSpan, wingThickness, wingChord);
-
-            const topWing = new THREE.Mesh(wingGeo, wingMaterial); // Kolor zielony
-            topWing.position.set(0, fuselageHeight / 2 + 0.5, fuselage.position.z + 0.2);
-            a.add(topWing);
-
-            const botWing = new THREE.Mesh(wingGeo, wingMaterial); // Kolor zielony
-            botWing.position.set(0, -fuselageHeight / 2 + wingThickness / 2, fuselage.position.z - 0.1);
-            a.add(botWing);
-
-            // --- Wsporniki Międzyskrzydłowe (Wing Struts) ---
-            const strutRadius = 0.05;
-            const strutHeight = topWing.position.y - botWing.position.y - wingThickness;
-
-            function createVerticalStrut(x, z) {
-                const strutGeo = new THREE.CylinderGeometry(strutRadius, strutRadius, strutHeight, 6);
-                // Używamy materiału dla wsporników międzyskrzydłowych
-                const strut = new THREE.Mesh(strutGeo, interplaneStrutMaterial); // Kolor brązowy
-                strut.position.set(x, botWing.position.y + wingThickness / 2 + strutHeight / 2, z);
-                return strut;
-            }
-
-            const strutXOffset = wingSpan * 0.35;
-            const strutZOffset = wingChord * 0.2;
-            a.add(createVerticalStrut(strutXOffset, botWing.position.z + strutZOffset));
-            a.add(createVerticalStrut(strutXOffset, botWing.position.z - strutZOffset));
-            a.add(createVerticalStrut(-strutXOffset, botWing.position.z + strutZOffset));
-            a.add(createVerticalStrut(-strutXOffset, botWing.position.z - strutZOffset));
-
-            // --- Ogon (Tail Section) ---
-            const tailplaneSpan = 3.5;
-            const tailplaneChord = 1.0;
-            const tailplaneThickness = 0.12;
-            const tailplaneGeo = new THREE.BoxGeometry(tailplaneSpan, tailplaneThickness, tailplaneChord);
-            // Statecznik poziomy w kolorze skrzydeł
-            const tailplane = new THREE.Mesh(tailplaneGeo, wingMaterial); // Kolor zielony
-            tailplane.position.set(0, 0, fuselage.position.z - fuselageLength / 2 - tailplaneChord / 2 + 0.2);
-            a.add(tailplane);
-
-            const finHeight = 1.1;
-            const finChord = 0.9;
-            const finThickness = 0.1;
-            const finGeo = new THREE.BoxGeometry(finThickness, finHeight, finChord);
-            // Statecznik pionowy w kolorze kadłuba (uproszczenie)
-            const fin = new THREE.Mesh(finGeo, fuselageMaterial); // Kolor khaki
-            fin.position.set(0, tailplane.position.y + tailplaneThickness/2 + finHeight/2, tailplane.position.z);
-            a.add(fin);
-
-            // --- Podwozie (Landing Gear) ---
-            const wheelRadius = 0.4;
-            const wheelThickness = 0.1;
-            const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelThickness, 16);
-            wheelGeo.rotateZ(Math.PI / 2);
-
-            const landingStrutLength = 1.8; // Długość jest obliczana, ale promień jest potrzebny
-            const landingStrutRadius = 0.06;
-
-            const wheelY = -fuselageHeight / 2 - 0.7;
-            const wheelX = fuselageWidth / 2 + 0.4;
-            const wheelZ = botWing.position.z + 0.1;
-
-            const wheelL = new THREE.Mesh(wheelGeo, wheelMaterial); // Koła czarne
-            wheelL.position.set(-wheelX, wheelY, wheelZ);
-            a.add(wheelL);
-
-            const wheelR = new THREE.Mesh(wheelGeo, wheelMaterial); // Koła czarne
-            wheelR.position.set(wheelX, wheelY, wheelZ);
-            a.add(wheelR);
-
-            function createLandingStrut(attachPointFuselage, attachPointWheel) {
-                 const direction = new THREE.Vector3().subVectors(attachPointWheel, attachPointFuselage);
-                const length = direction.length();
-                const geo = new THREE.CylinderGeometry(landingStrutRadius, landingStrutRadius, length, 6);
-                geo.translate(0, length / 2, 0);
-                // Używamy materiału dla wsporników podwozia
-                const strut = new THREE.Mesh(geo, landingGearStrutMaterial); // Kolor khaki
-                strut.position.copy(attachPointFuselage);
-                strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-                return strut;
-            }
-
-            const fuselageAttachY = -fuselageHeight / 2;
-            const fuselageAttachX = fuselageWidth / 2;
-            const fuselageAttachZFront = wheelZ + 0.2;
-            const fuselageAttachZRear = wheelZ - 0.2;
-
-            a.add(createLandingStrut(new THREE.Vector3(-fuselageAttachX, fuselageAttachY, fuselageAttachZFront), wheelL.position));
-            a.add(createLandingStrut(new THREE.Vector3(-fuselageAttachX, fuselageAttachY, fuselageAttachZRear), wheelL.position));
-            a.add(createLandingStrut(new THREE.Vector3(fuselageAttachX, fuselageAttachY, fuselageAttachZFront), wheelR.position));
-            a.add(createLandingStrut(new THREE.Vector3(fuselageAttachX, fuselageAttachY, fuselageAttachZRear), wheelR.position));
-
-            const axleLength = wheelX * 2;
-            const axleGeo = new THREE.CylinderGeometry(landingStrutRadius * 0.8, landingStrutRadius * 0.8, axleLength, 6);
-            axleGeo.rotateZ(Math.PI / 2);
-            const axle = new THREE.Mesh(axleGeo, landingGearStrutMaterial); // Oś khaki
-            axle.position.set(0, wheelY, wheelZ);
-            a.add(axle);
-
-            const skidLength = 0.6;
-            const skidGeo = new THREE.CylinderGeometry(landingStrutRadius, landingStrutRadius*0.5, skidLength, 6);
-            const skid = new THREE.Mesh(skidGeo, landingGearStrutMaterial); // Płoza khaki
-            skid.position.set(0, -fuselageHeight * 0.6, fuselage.position.z - fuselageLength / 2 - 0.1);
-            skid.rotation.z = -1.0;
-            a.add(skid);
-
-            // --- Karabiny (Guns) ---
-            const gunLength = 1.2;
-            const gunRadius = 0.06;
-            const gunGeo = new THREE.CylinderGeometry(gunRadius, gunRadius, gunLength, 8);
-            const gunOffsetZ = fuselage.position.z + fuselageLength*0.15;
-            const gunOffsetY = fuselageHeight / 2 + 0.05;
-            const gunOffsetX = fuselageWidth * 0.2;
-
-            const gunL = new THREE.Mesh(gunGeo, gunMaterial); // Ciemnoszare/czarne
-            gunL.rotation.x = Math.PI / 2;
-            gunL.position.set(-gunOffsetX, gunOffsetY, gunOffsetZ);
-            a.add(gunL);
-
-            const gunR = new THREE.Mesh(gunGeo, gunMaterial); // Ciemnoszare/czarne
-            gunR.rotation.x = Math.PI / 2;
-            gunR.position.set(gunOffsetX, gunOffsetY, gunOffsetZ);
-            a.add(gunR);
-
-            // Definicja pozycji wylotów luf w lokalnych koordynatach samolotu
-             const gunTipOffset = new THREE.Vector3(0, 0, gunLength / 2); // Przesunięcie do końca lufy
-             a.userData.gunPositions = [
-                 gunL.position.clone().add(gunTipOffset),
-                 gunR.position.clone().add(gunTipOffset)
-             ];
-
-            a.rotation.x = 0.02; // Lekkie pochylenie całego modelu
-
-            return a;
-        }
-        function createRedBaron(c) { // Kolor c jest używany jako główny
-            const a = new THREE.Group();
-            const bodyColor = c; // Główny kolor (np. czerwony)
-            const detailColor = 0xaaaaaa; // Jasny detal (np. srebrny/szary)
-            const darkDetailColor = 0x333333; // Ciemny detal (np. podwozie, KM)
-            const propellerColor = 0x4a2a0a; // Ciemny brąz dla śmigła
-            const wheelColor = 0x111111; // Czarny dla kół
-
-            const bodyMaterial = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6, metalness: 0.2 });
-            const detailMaterial = new THREE.MeshStandardMaterial({ color: detailColor, roughness: 0.7 });
-            const darkDetailMaterial = new THREE.MeshStandardMaterial({ color: darkDetailColor, roughness: 0.5 });
-            const propellerMaterial = new THREE.MeshStandardMaterial({ color: propellerColor, roughness: 0.8 });
-            const wheelMaterial = new THREE.MeshStandardMaterial({ color: wheelColor, roughness: 0.8 });
-
-            // --- Kadłub ---
-            const fuselageLength = 4.5;
-            const fuselageWidth = 1.1;
-            const fuselageHeight = 1.3;
-            const fuselageGeo = new THREE.BoxGeometry(fuselageWidth, fuselageHeight, fuselageLength);
-            const fuselage = new THREE.Mesh(fuselageGeo, bodyMaterial);
-            fuselage.position.z = -fuselageLength / 2 + 0.3; // Lekkie przesunięcie
-            a.add(fuselage);
-
-             // --- Osłona silnika (bardziej zaokrąglona) ---
-             const cowlingRadius = 0.6;
-             const cowlingLength = 0.5;
-             const cowlingGeo = new THREE.CylinderGeometry(cowlingRadius, cowlingRadius*0.8, cowlingLength, 16);
-             const cowling = new THREE.Mesh(cowlingGeo, detailMaterial); // Srebrzysta osłona
-             cowling.rotation.x = Math.PI / 2;
-             cowling.position.set(0, 0, fuselage.position.z + fuselageLength / 2 + cowlingLength / 2 - 0.05);
-             a.add(cowling);
-
-            // --- Skrzydła (Trójpłatowiec) ---
-            const wingSpan = 7.0;
-            const wingChord = 1.0;
-            const wingThickness = 0.15;
-            const wingVerticalSeparation = 0.9; // Odstęp między skrzydłami
-            const wingStagger = 0.2; // Przesunięcie środkowego i górnego do przodu
-
-            const wingGeo = new THREE.BoxGeometry(wingSpan, wingThickness, wingChord);
-
-            // Dolne skrzydło
-            const botWing = new THREE.Mesh(wingGeo, bodyMaterial);
-            botWing.position.set(0, -fuselageHeight / 2 - wingVerticalSeparation + wingThickness/2, fuselage.position.z - wingChord*0.1);
-            a.add(botWing);
-
-            // Środkowe skrzydło
-            const midWing = new THREE.Mesh(wingGeo, bodyMaterial);
-            midWing.position.set(0, -fuselageHeight / 2 + wingThickness / 2, fuselage.position.z + wingStagger);
-            a.add(midWing);
-
-            // Górne skrzydło
-            const topWing = new THREE.Mesh(wingGeo, bodyMaterial);
-            topWing.position.set(0, midWing.position.y + wingVerticalSeparation, fuselage.position.z + wingStagger * 1.5);
-            a.add(topWing);
-
-            // --- Wsporniki międzyskrzydłowe (uproszczone) ---
-            const strutRadius = 0.04;
-            const strutMat = darkDetailMaterial; // Ciemne wsporniki
-            const strutXOffset = wingSpan * 0.3;
-
-            function createInterplaneStruts(bottomY, topY, zPos, xOff) {
-                const height = topY - bottomY;
-                const geo = new THREE.CylinderGeometry(strutRadius, strutRadius, height, 6);
-                const strutF = new THREE.Mesh(geo, strutMat); // Przedni
-                strutF.position.set(xOff, bottomY + height/2, zPos + wingChord/3);
-                a.add(strutF);
-                const strutB = new THREE.Mesh(geo, strutMat); // Tylny
-                strutB.position.set(xOff, bottomY + height/2, zPos - wingChord/3);
-                a.add(strutB);
-            }
-            // Wsporniki Dolne -> Środkowe
-            createInterplaneStruts(botWing.position.y, midWing.position.y, fuselage.position.z + wingStagger*0.5, strutXOffset);
-            createInterplaneStruts(botWing.position.y, midWing.position.y, fuselage.position.z + wingStagger*0.5, -strutXOffset);
-             // Wsporniki Środkowe -> Górne
-            createInterplaneStruts(midWing.position.y, topWing.position.y, fuselage.position.z + wingStagger*1.25, strutXOffset);
-            createInterplaneStruts(midWing.position.y, topWing.position.y, fuselage.position.z + wingStagger*1.25, -strutXOffset);
-
-            // --- Ogon ---
-            const tailplaneSpan = 3.0;
-            const tailplaneChord = 0.8;
-            const tailplaneThickness = 0.1;
-            const tailplaneGeo = new THREE.PlaneGeometry(tailplaneSpan, tailplaneChord); // Użycie PlaneGeometry dla płaskiego ogona
-             tailplaneGeo.rotateX(Math.PI / 2);
-            const tailplane = new THREE.Mesh(tailplaneGeo, bodyMaterial);
-            tailplane.position.set(0, 0, fuselage.position.z - fuselageLength / 2 - tailplaneChord / 2 + 0.1);
-            a.add(tailplane);
-
-            const finHeight = 0.9;
-            const finChord = 0.7;
-            const finGeo = new THREE.PlaneGeometry(finChord, finHeight); // PlaneGeometry
-             finGeo.rotateY(Math.PI / 2);
-            const fin = new THREE.Mesh(finGeo, bodyMaterial);
-            fin.position.set(0, finHeight / 2, tailplane.position.z + 0.1);
-            a.add(fin);
-
-            // --- Śmigło ---
-            const propeller = new THREE.Group();
-            propeller.position.z = cowling.position.z + cowlingLength / 2 + 0.05;
-            const bladeLength = 2.8;
-            const bladeWidth = 0.25;
-            const bladeThickness = 0.06;
-            const bladeGeo = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeThickness);
-            const blade1 = new THREE.Mesh(bladeGeo, propellerMaterial);
-            propeller.add(blade1);
-            const blade2 = new THREE.Mesh(bladeGeo, propellerMaterial);
-            blade2.rotation.z = Math.PI / 2;
-            propeller.add(blade2);
-             // Mały spinner/kołpak
-             const spinnerGeo = new THREE.SphereGeometry(0.15, 8, 6);
-             const spinner = new THREE.Mesh(spinnerGeo, darkDetailMaterial);
-             propeller.add(spinner);
-            a.add(propeller);
-            a.userData.propeller = propeller;
-
-            // --- Karabiny (Spandau MG 08) ---
-            const gunLength = 1.1;
-            const gunRadius = 0.05;
-            const gunGeo = new THREE.CylinderGeometry(gunRadius, gunRadius, gunLength, 8);
-            const gunOffsetY = fuselageHeight / 2 + 0.05;
-            const gunOffsetX = fuselageWidth * 0.25;
-            const gunOffsetZ = fuselage.position.z + fuselageLength * 0.2;
-
-            const gunL = new THREE.Mesh(gunGeo, darkDetailMaterial);
-            gunL.rotation.x = Math.PI / 2;
-            gunL.position.set(-gunOffsetX, gunOffsetY, gunOffsetZ);
-            a.add(gunL);
-
-            const gunR = new THREE.Mesh(gunGeo, darkDetailMaterial);
-            gunR.rotation.x = Math.PI / 2;
-            gunR.position.set(gunOffsetX, gunOffsetY, gunOffsetZ);
-            a.add(gunR);
-
-            // Pozycje wylotów luf
-            const gunTipOffset = new THREE.Vector3(0, 0, gunLength / 2);
-             a.userData.gunPositions = [
-                 gunL.position.clone().add(gunTipOffset),
-                 gunR.position.clone().add(gunTipOffset)
-             ];
-
-            // --- Podwozie ---
-            const wheelRadius = 0.35;
-            const wheelThickness = 0.1;
-            const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelThickness, 16);
-            wheelGeo.rotateZ(Math.PI / 2);
-
-            const landingStrutHeight = 1.5;
-            const landingStrutRadius = 0.05;
-            const landingStrutGeo = new THREE.CylinderGeometry(landingStrutRadius, landingStrutRadius, landingStrutHeight, 6);
-            const wheelXOffset = 0.7;
-            const wheelYPos = botWing.position.y - landingStrutHeight * 0.6; // Pod dolnym skrzydłem
-            const wheelZPos = midWing.position.z - wingChord * 0.2; // Lekko pod środkowym skrzydłem
-
-            const wheelL = new THREE.Mesh(wheelGeo, wheelMaterial);
-            wheelL.position.set(-wheelXOffset, wheelYPos, wheelZPos);
-            a.add(wheelL);
-
-            const wheelR = new THREE.Mesh(wheelGeo, wheelMaterial);
-            wheelR.position.set(wheelXOffset, wheelYPos, wheelZPos);
-            a.add(wheelR);
-
-             // Golenie podwozia (uproszczone V)
-            const strutL = new THREE.Mesh(landingStrutGeo, darkDetailMaterial);
-            strutL.position.set(-wheelXOffset * 0.9, botWing.position.y - landingStrutHeight / 2 + wingThickness, wheelZPos);
-            strutL.rotation.z = 0.3; // Pochylenie
-             strutL.rotation.x = -0.1; // Lekko do tyłu
-            a.add(strutL);
-
-            const strutR = new THREE.Mesh(landingStrutGeo, darkDetailMaterial);
-            strutR.position.set(wheelXOffset * 0.9, botWing.position.y - landingStrutHeight / 2 + wingThickness, wheelZPos);
-            strutR.rotation.z = -0.3; // Pochylenie
-             strutR.rotation.x = -0.1; // Lekko do tyłu
-            a.add(strutR);
-
-             // Oś łącząca koła
-            const axleLength = wheelXOffset * 2;
-            const axleGeo = new THREE.CylinderGeometry(landingStrutRadius * 0.7, landingStrutRadius * 0.7, axleLength, 6);
-            axleGeo.rotateZ(Math.PI/2);
-            const axle = new THREE.Mesh(axleGeo, darkDetailMaterial);
-            axle.position.set(0, wheelYPos, wheelZPos);
-            a.add(axle);
-
-
-            // Płoza ogonowa
-            const skidLength = 0.5;
-            const skidGeo = new THREE.CylinderGeometry(landingStrutRadius*0.8, landingStrutRadius*0.4, skidLength, 6);
-            const skid = new THREE.Mesh(skidGeo, darkDetailMaterial);
-            skid.position.set(0, -fuselageHeight * 0.7, fuselage.position.z - fuselageLength / 2 - 0.2);
-            skid.rotation.z = -0.8;
-            a.add(skid);
-
-            return a;
-        }
-        function createAirplane(c) { // Generic Jet - bez zmian
-            const a = new THREE.Group();
-            const fuselageGeo = new THREE.BoxGeometry(2, 1, 8); // Dłuższy kadłub
-            const fuselageMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, metalness: 0.4 });
-            const fuselage = new THREE.Mesh(fuselageGeo, fuselageMat);
-            fuselage.position.z = -1; // Przesunięcie środka
-            a.add(fuselage);
-
-            // Skrzydła skośne
-            const wingShape = new THREE.Shape();
-            wingShape.moveTo(0, 0);
-            wingShape.lineTo(5, -1); // Skośna krawędź natarcia
-            wingShape.lineTo(5, -1.5);
-            wingShape.lineTo(0.5, -1.8); // Skośna krawędź spływu
-            wingShape.lineTo(0, -0.5); // Przy kadłubie
-            const extrudeSettings = { depth: 0.15, bevelEnabled: false };
-            const wingGeo = new THREE.ExtrudeGeometry(wingShape, extrudeSettings);
-            const wingMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.6, metalness: 0.3 });
-
-            const wingL = new THREE.Mesh(wingGeo, wingMat);
-            wingL.rotation.y = Math.PI; // Obróć lewe skrzydło
-             wingL.position.set(-1, 0.3, -1.5); // Pozycja lewego skrzydła
-            a.add(wingL);
-
-            const wingR = new THREE.Mesh(wingGeo, wingMat);
-             wingR.position.set(1, 0.3, -1.5); // Pozycja prawego skrzydła
-            a.add(wingR);
-
-
-             // Stateczniki (ogon)
-             const tailPlaneGeo = new THREE.BoxGeometry(4, 0.1, 1.5);
-             const tailPlane = new THREE.Mesh(tailPlaneGeo, wingMat); // Materiał jak skrzydła
-             tailPlane.position.set(0, 0.2, -4.5); // Z tyłu
-             a.add(tailPlane);
-
-             const finGeo = new THREE.BoxGeometry(0.15, 1.8, 1.2); // Wyższy statecznik pionowy
-             const fin = new THREE.Mesh(finGeo, fuselageMat); // Materiał jak kadłub
-             fin.position.set(0, 1.0, -4.8); // Na górze ogona
-             a.add(fin);
-
-            // Brak śmigła, symulacja dyszy odrzutowej
-             const nozzleGeo = new THREE.CylinderGeometry(0.5, 0.4, 0.8, 16);
-             const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
-             const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
-             nozzle.rotation.x = Math.PI / 2;
-             nozzle.position.set(0, 0, -5.0); // Z tyłu kadłuba
-             a.add(nozzle);
-             a.userData.propeller = null; // Ten model nie ma śmigła
-
-             // Karabiny (pod skrzydłami lub w kadłubie)
-             const gunLength = 1.5;
-             const gunRadius = 0.1;
-             const gunGeo = new THREE.CylinderGeometry(gunRadius, gunRadius, gunLength, 8);
-             const gunMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.5 });
-
-             // Pozycje działek np. w nosie
-             const gunL = new THREE.Mesh(gunGeo, gunMat);
-             gunL.rotation.x = Math.PI / 2;
-             gunL.position.set(-0.5, -0.2, 2.5); // W przedniej części kadłuba
-             a.add(gunL);
-             const gunR = new THREE.Mesh(gunGeo, gunMat);
-             gunR.rotation.x = Math.PI / 2;
-             gunR.position.set(0.5, -0.2, 2.5);
-             a.add(gunR);
-
-             // Pozycje wylotów luf
-             const gunTipOffset = new THREE.Vector3(0, 0, gunLength / 2);
-             a.userData.gunPositions = [
-                 gunL.position.clone().add(gunTipOffset),
-                 gunR.position.clone().add(gunTipOffset)
-             ];
-
-             // Podwozie (uproszczone, chowane - ale tu statyczne)
-             const wheelRadius = 0.3;
-             const wheelThickness = 0.1;
-             const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelThickness, 12);
-             wheelGeo.rotateZ(Math.PI/2);
-             const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
-             const strutHeight = 1.0;
-             const strutGeo = new THREE.BoxGeometry(0.1, strutHeight, 0.1);
-             const strutMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.7 });
-
-             // Przednie koło
-             const noseWheel = new THREE.Mesh(wheelGeo, wheelMat);
-             noseWheel.position.set(0, -0.5 - strutHeight/2 + wheelThickness/2, 1.5);
-             a.add(noseWheel);
-             const noseStrut = new THREE.Mesh(strutGeo, strutMat);
-             noseStrut.position.set(0, -0.5, 1.5);
-             a.add(noseStrut);
-
-             // Główne koła (pod skrzydłami)
-             const mainWheelL = new THREE.Mesh(wheelGeo, wheelMat);
-             mainWheelL.position.set(-1.5, -0.5 - strutHeight/2 + wheelThickness/2, -1.5);
-             a.add(mainWheelL);
-             const mainStrutL = new THREE.Mesh(strutGeo, strutMat);
-             mainStrutL.position.set(-1.5, -0.5, -1.5);
-             mainStrutL.rotation.z = 0.1; // Lekko na zewnątrz
-             a.add(mainStrutL);
-
-             const mainWheelR = new THREE.Mesh(wheelGeo, wheelMat);
-             mainWheelR.position.set(1.5, -0.5 - strutHeight/2 + wheelThickness/2, -1.5);
-             a.add(mainWheelR);
-             const mainStrutR = new THREE.Mesh(strutGeo, strutMat);
-             mainStrutR.position.set(1.5, -0.5, -1.5);
-             mainStrutR.rotation.z = -0.1; // Lekko na zewnątrz
-             a.add(mainStrutR);
-
-            return a;
-        }
-        function createTiles() { const waterColor = 0x003366; const landColor = 0x228B22; for (let dx = -2; dx <= 2; dx++) { for (let dz = -2; dz <= 2; dz++) { const isCenter = (dx === 0 && dz === 0); const tileColor = isCenter ? landColor : waterColor; const tileMaterial = new THREE.MeshStandardMaterial({ color: tileColor, roughness: isCenter ? 0.8 : 0.6, metalness: 0.1 }); const tile = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE), tileMaterial); tile.rotation.x = -Math.PI / 2; tile.userData.gridX = dx; tile.userData.gridZ = dz; tile.userData.isCenter = isCenter; scene.add(tile); tiles.push(tile); } } }
-        function createBuildings() { const m = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, metalness: 0.3 }); for (let i = 0; i < 150; i++) { const w = Math.random() * 15 + 10, d = Math.random() * 15 + 10, h = Math.random() * 120 + 50, g = new THREE.BoxGeometry(w, h, d), b = new THREE.Mesh(g, m); b.position.set((Math.random() - 0.5) * (TILE_SIZE * 0.9), h / 2, (Math.random() - 0.5) * (TILE_SIZE * 0.9)); b.userData.radius = Math.max(w, d) / 2 * 1.1; b.userData.health = 3; buildings.push(b); scene.add(b); } }
-        function createCarriers() { const carrierGeo = new THREE.BoxGeometry(80, 20, 500); const carrierMat = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 0.8 }); const carrierPositions = [{ x: 0, z: -CARRIER_DISTANCE, rotY: 0 }, { x: CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }, { x: 0, z: CARRIER_DISTANCE, rotY: 0 }, { x: -CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }]; carrierPositions.forEach(pos => { const carrier = new THREE.Mesh(carrierGeo, carrierMat); carrier.position.set(pos.x, 10, pos.z); carrier.rotation.y = pos.rotY; carrier.userData.radius = 250; carrier.userData.isCarrier = true; carrier.userData.health = Infinity; carriers.push(carrier); scene.add(carrier); }); }
+        // --- Funkcje Tworzące Elementy Sceny (bez zmian) ---
+        function createTiles() { const wc=0x003366, lc=0x228B22; for (let x=-2; x<=2; x++) for (let z=-2; z<=2; z++) { const c=(x===0&&z===0)?lc:wc; const m=new THREE.MeshStandardMaterial({color:c, roughness:(x===0&&z===0)?0.8:0.6, metalness:0.1}); const t=new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),m); t.rotation.x=-Math.PI/2; t.userData.gridX=x; t.userData.gridZ=z; scene.add(t); tiles.push(t);}}
+        function createBuildings() { const m=new THREE.MeshStandardMaterial({color:0x555555,roughness:0.7,metalness:0.3}); for (let i=0; i<150; i++) { const w=Math.random()*15+10, d=Math.random()*15+10, h=Math.random()*120+50; const g=new THREE.BoxGeometry(w,h,d), b=new THREE.Mesh(g,m); b.position.set((Math.random()-0.5)*(TILE_SIZE*0.9), h/2, (Math.random()-0.5)*(TILE_SIZE*0.9)); b.userData.radius=Math.max(w,d)/2*1.1; b.userData.health=3; buildings.push(b); scene.add(b);}}
+        function createCarriers() { const g=new THREE.BoxGeometry(80,20,500), m=new THREE.MeshStandardMaterial({color:0x444455, roughness:0.8}); const p=[{x:0,z:-CARRIER_DISTANCE,r:0},{x:CARRIER_DISTANCE,z:0,r:Math.PI/2},{x:0,z:CARRIER_DISTANCE,r:0},{x:-CARRIER_DISTANCE,z:0,r:Math.PI/2}]; p.forEach(pos=>{ const c=new THREE.Mesh(g,m); c.position.set(pos.x,10,pos.z); c.rotation.y=pos.r; c.userData.radius=250; c.userData.isCarrier=true; c.userData.health=Infinity; carriers.push(c); scene.add(c);});}
 
         // --- Funkcje Aktualizujące ---
+        // updateOpponentPlanes - używa targetQuat z nowymi rotacjami
         function updateOpponentPlanes(deltaTime) {
             for (const id in opponentPlanes) {
                 const oppData = opponentPlanes[id];
                 const opp = oppData.plane;
                 const healthBar = oppData.healthBar;
-
-                if (!opp || !opp.parent) continue; // Skip if plane doesn't exist
+                if (!opp || !opp.parent) continue;
 
                 if (opp.userData.isAlive) {
-                    // Interpolacja pozycji i rotacji
-                    if (oppData.targetPos) {
-                        opp.position.lerp(oppData.targetPos, INTERPOLATION_FACTOR * deltaTime);
-                    }
-                    if (oppData.targetQuat) {
-                        opp.quaternion.slerp(oppData.targetQuat, INTERPOLATION_FACTOR * deltaTime);
-                    }
-                    // Animacja śmigła (jeśli istnieje)
-                    if (opp.userData.propeller) {
-                        opp.userData.propeller.rotation.z += BASE_PROPELLER_SPEED_MULTIPLIER * 0.15 * deltaTime; // Wolniejsza rotacja dla przeciwników
-                    }
-                    // Aktualizacja i pozycjonowanie paska zdrowia
+                    // Interpolacja pozycji (bez zmian)
+                    if (oppData.targetPos) { opp.position.lerp(oppData.targetPos, INTERPOLATION_FACTOR * deltaTime); }
+                    // Interpolacja rotacji (Quaternion slerp działa dla każdej orientacji)
+                    if (oppData.targetQuat) { opp.quaternion.slerp(oppData.targetQuat, INTERPOLATION_FACTOR * deltaTime); }
+
+                    // Animacja śmigła (bez zmian)
+                    if (opp.userData.propeller) { opp.userData.propeller.rotation.z += BASE_PROPELLER_SPEED_MULTIPLIER * 0.15 * deltaTime; }
+
+                    // Aktualizacja i pozycjonowanie paska zdrowia (bez zmian)
                     if (healthBar) {
-                         updateHealthBar(opp, healthBar.firstChild); // Aktualizuj pasek zdrowia przeciwnika
+                         updateHealthBar(opp, healthBar.firstChild);
                          positionHealthBar(opp, healthBar);
                     }
                 }
             }
         }
-        // updateTiles, updateBullets, updateCamera, updateMinimap, updateScoreboard, updateRankingWebSocket - bez zmian
-        function updateTiles() { if (!plane || !plane.parent || !gameStarted) return; const playerTileX = Math.round(plane.position.x / TILE_SIZE); const playerTileZ = Math.round(plane.position.z / TILE_SIZE); tiles.forEach(tile => { const tileWorldX = (playerTileX + tile.userData.gridX) * TILE_SIZE; const tileWorldZ = (playerTileZ + tile.userData.gridZ) * TILE_SIZE; tile.position.set(tileWorldX, 0, tileWorldZ); }); }
-        function updateBullets(dT) { if (!gameStarted) return; const bulletRangeSq = 6000 * 6000; const explosionRadiusSq = 5 * 5; for (let i = bullets.length - 1; i >= 0; i--) { const bullet = bullets[i]; if (!bullet || !bullet.parent) { bullets.splice(i, 1); continue; } bullet.userData.life = (bullet.userData.life || 0) + dT; if (bullet.userData.life > 4.0) { scene.remove(bullet); bullets.splice(i, 1); continue; } bullet.position.add(bullet.userData.velocity.clone().multiplyScalar(dT)); let hit = false; for (const building of buildings) { if (!building.parent) continue; const distSq = bullet.position.distanceToSquared(building.position); const radiiSq = (building.userData.radius + 0.5) * (building.userData.radius + 0.5); if (distSq < radiiSq) { building.userData.health--; if (building.userData.health <= 0) { removeBuilding(building); if (bullet.userData.ownerId === localPlayerId) score += 25; } scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } if (hit) continue; for (const carrier of carriers) { if (!carrier.parent) continue; const distSq = bullet.position.distanceToSquared(carrier.position); const radiiSq = (carrier.userData.radius + 0.5) * (carrier.userData.radius + 0.5); if (distSq < radiiSq && Math.abs(bullet.position.y - carrier.position.y) < 15) { scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } if (hit) continue; if (bullet.userData.ownerId === localPlayerId) { for (const opponentId in opponentPlanes) { const opponentData = opponentPlanes[opponentId]; if (!opponentData || !opponentData.plane) continue; const opponentPlane = opponentData.plane; if (opponentPlane.userData.isAlive) { const distSq = bullet.position.distanceToSquared(opponentPlane.position); if (distSq < (opponentPlane.userData.collisionRadius + 0.5)**2) { console.log(`Local player hit opponent ${opponentId}!`); sendWebSocketMessage({ type: 'hit_player', targetId: parseInt(opponentId), damage: bullet.userData.damage }); scene.remove(bullet); bullets.splice(i, 1); hit = true; break; } } } } if (hit) continue; if (bullet.position.lengthSq() > bulletRangeSq) { scene.remove(bullet); bullets.splice(i, 1); } } }
-        function updateCamera() { if (!plane || !plane.parent || !gameStarted) return; const o = new THREE.Vector3(0, 5, -20).applyQuaternion(plane.quaternion); camera.position.copy(plane.position).add(o); camera.lookAt(plane.position); }
-        function updateMinimap() { if (!minimapCtx || !plane || !plane.parent || !gameStarted) return; minimapCtx.fillStyle = 'rgba(0,0,0,0.5)'; minimapCtx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2); minimapCtx.scale(MAP_SCALE, MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x, -plane.position.z); tiles.forEach(t => { const color = t.userData.gridX === 0 && t.userData.gridZ === 0 ? 'rgb(34,136,34)' : 'rgb(0,51,102)'; minimapCtx.fillStyle = color; minimapCtx.fillRect(t.position.x - TILE_SIZE / 2, t.position.z - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE); }); minimapCtx.fillStyle = 'grey'; buildings.forEach(b => { if (!b.parent) return; const w = b.geometry.parameters.width * 1.5; const d = b.geometry.parameters.depth * 1.5; minimapCtx.fillRect(b.position.x - w / 2, b.position.z - d / 2, w, d); }); minimapCtx.fillStyle = 'darkgrey'; carriers.forEach(c => { if (!c.parent) return; minimapCtx.save(); minimapCtx.translate(c.position.x, c.position.z); minimapCtx.rotate(c.rotation.y); const w = c.geometry.parameters.width; const d = c.geometry.parameters.depth; minimapCtx.fillRect(-w / 2, -d / 2, w, d); minimapCtx.restore(); }); minimapCtx.fillStyle = 'blue'; for (const id in opponentPlanes) { const oppData = opponentPlanes[id]; if (oppData && oppData.plane && oppData.plane.userData.isAlive) { minimapCtx.beginPath(); minimapCtx.arc(oppData.plane.position.x, oppData.plane.position.z, 150, 0, Math.PI * 2); minimapCtx.fill(); } } minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2); minimapCtx.fillStyle = 'red'; minimapCtx.beginPath(); minimapCtx.moveTo(0, -6); minimapCtx.lineTo(-4, 6); minimapCtx.lineTo(4, 6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
+        // updateTiles, updateBullets (bez zmian)
+        function updateTiles() { if (!plane || !plane.parent || !gameStarted) return; const px=Math.round(plane.position.x/TILE_SIZE), pz=Math.round(plane.position.z/TILE_SIZE); tiles.forEach(t=>{const wx=(px+t.userData.gridX)*TILE_SIZE; const wz=(pz+t.userData.gridZ)*TILE_SIZE; t.position.set(wx,0,wz);});}
+        function updateBullets(dT) { if (!gameStarted) return; const rangeSq=6000*6000; for (let i=bullets.length-1; i>=0; i--) { const b=bullets[i]; if (!b || !b.parent) { bullets.splice(i,1); continue; } b.userData.life=(b.userData.life||0)+dT; if (b.userData.life>4.0) { scene.remove(b); bullets.splice(i,1); continue; } b.position.add(b.userData.velocity.clone().multiplyScalar(dT)); let hit=false; for (const bd of buildings) { if (!bd.parent) continue; if (b.position.distanceToSquared(bd.position)<(bd.userData.radius+0.5)**2) { bd.userData.health--; if (bd.userData.health<=0) { removeBuilding(bd); if (b.userData.ownerId===localPlayerId) score+=25;} scene.remove(b); bullets.splice(i,1); hit=true; break; } } if(hit) continue; for (const cr of carriers) { if (!cr.parent) continue; if (b.position.distanceToSquared(cr.position)<(cr.userData.radius+0.5)**2 && Math.abs(b.position.y-cr.position.y)<15) { scene.remove(b); bullets.splice(i,1); hit=true; break; } } if(hit) continue; if (b.userData.ownerId === localPlayerId) { for (const oId in opponentPlanes) { const oData=opponentPlanes[oId]; if (!oData || !oData.plane || !oData.plane.userData.isAlive) continue; if (b.position.distanceToSquared(oData.plane.position) < (oData.plane.userData.collisionRadius+0.5)**2) { console.log(`LP hit opp ${oId}!`); sendWebSocketMessage({type:'hit_player', targetId:parseInt(oId), damage:b.userData.damage}); scene.remove(b); bullets.splice(i,1); hit=true; break; } } } if(hit) continue; if (b.position.lengthSq()>rangeSq) { scene.remove(b); bullets.splice(i,1); } } }
+        // updateCamera - ZMIENIONA lekko, aby używać stałej odległości/wysokości
+        function updateCamera() {
+             if (!plane || !plane.parent || !gameStarted) return;
+             // Użyj stałego offsetu względem lokalnych osi samolotu
+             const offset = new THREE.Vector3(0, CAMERA_HEIGHT, -CAMERA_DISTANCE);
+             const cameraTargetPosition = offset.applyMatrix4(plane.matrixWorld); // Transformuj offset do współrzędnych świata
+             // Płynne przejście kamery do nowej pozycji
+             camera.position.lerp(cameraTargetPosition, 0.1);
+             // Kamera patrzy na punkt lekko przed samolotem dla lepszego widoku
+             const lookAtTarget = new THREE.Vector3(0, 0, 10).applyMatrix4(plane.matrixWorld);
+             camera.lookAt(lookAtTarget);
+             // Można dodać: camera.up.copy(plane.up).applyQuaternion(plane.quaternion); dla stabilizacji horyzontu, ale może być dezorientujące przy beczkach
+        }
+        // updateMinimap (bez zmian), updateScoreboard (bez zmian), updateRankingWebSocket (bez zmian)
+        function updateMinimap() { if(!minimapCtx||!plane||!plane.parent||!gameStarted) return; minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.scale(MAP_SCALE,MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x,-plane.position.z); tiles.forEach(t=>{const c=t.userData.gridX===0&&t.userData.gridZ===0?'rgb(34,136,34)':'rgb(0,51,102)'; minimapCtx.fillStyle=c; minimapCtx.fillRect(t.position.x-TILE_SIZE/2, t.position.z-TILE_SIZE/2, TILE_SIZE, TILE_SIZE);}); minimapCtx.fillStyle='grey'; buildings.forEach(b=>{if(!b.parent)return; const w=b.geometry.parameters.width*1.5, d=b.geometry.parameters.depth*1.5; minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);}); minimapCtx.fillStyle='darkgrey'; carriers.forEach(c=>{if(!c.parent)return; minimapCtx.save(); minimapCtx.translate(c.position.x,c.position.z); minimapCtx.rotate(c.rotation.y); const w=c.geometry.parameters.width, d=c.geometry.parameters.depth; minimapCtx.fillRect(-w/2,-d/2,w,d); minimapCtx.restore();}); minimapCtx.fillStyle='blue'; for (const id in opponentPlanes){const o=opponentPlanes[id]; if(o&&o.plane&&o.plane.userData.isAlive){minimapCtx.beginPath(); minimapCtx.arc(o.plane.position.x,o.plane.position.z,150,0,Math.PI*2); minimapCtx.fill();}} minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.fillStyle='red'; minimapCtx.beginPath(); minimapCtx.moveTo(0,-6); minimapCtx.lineTo(-4,6); minimapCtx.lineTo(4,6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
         function updateScoreboard() { if (!plane || localPlayerId === null || plane.userData.kills === undefined || !gameStarted) return; scoreDiv.innerText = `Kills: ${plane.userData.kills} / Score: ${score}`; }
-        function updateRankingWebSocket() { rankingList.innerHTML = ''; const pD = []; if (plane && localPlayerId !== null && plane.userData.kills !== undefined && gameStarted) { pD.push({ id: localPlayerId, kills: plane.userData.kills, name: `Ty (${plane.userData.planeType || '?'})` }); } for (const pI in opponentPlanes) { const oppData = opponentPlanes[pI]; if (oppData && oppData.plane && oppData.plane.userData.kills !== undefined) { const n = `Gracz ${String(pI).substr(-4)} (${oppData.planeType || '?'})`; pD.push({ id: pI, kills: oppData.plane.userData.kills, name: n }); } } pD.sort((a, b) => b.kills - a.kills); pD.forEach(p => { const li = document.createElement('li'), nS = document.createElement('span'), kS = document.createElement('span'); nS.textContent = p.name; kS.textContent = p.kills; if (p.id == localPlayerId) li.style.color = 'yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li); }); }
+        function updateRankingWebSocket() { rankingList.innerHTML = ''; const pD = []; if (plane && localPlayerId !== null && plane.userData.kills !== undefined && gameStarted) { pD.push({ id: localPlayerId, kills: plane.userData.kills, name: `Ty (${plane.userData.planeType || '?'})` }); } for (const pI in opponentPlanes) { const oppData = opponentPlanes[pI]; if (oppData && oppData.plane && oppData.plane.userData.kills !== undefined) { const n = `Gracz ${String(pI).substr(-4)} (${oppData.planeType || '?'})`; pD.push({ id: pI, kills: oppData.plane.userData.kills, name: n }); } } pD.sort((a, b) => b.kills - a.kills); pD.forEach(p => { const li=document.createElement('li'), nS=document.createElement('span'), kS=document.createElement('span'); nS.textContent=p.name; kS.textContent=p.kills; if(p.id==localPlayerId)li.style.color='yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li); }); }
 
         // --- Akcje Gracza i Kolizje ---
-        // fireGuns, checkCollisions, removeBuilding, takeDamage, handlePlayerDeath - bez zmian
-        function fireGuns() { if (!plane || !plane.userData.isAlive || !plane.visible || !gameStarted) return; const gunPositions = plane.userData.gunPositions; if (!gunPositions || gunPositions.length === 0) return; gunPositions.forEach(localGunPos => { const worldGunPos = localGunPos.clone().applyMatrix4(plane.matrixWorld); const fireDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion).normalize(); const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8); const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 }); const bullet = new THREE.Mesh(bulletGeo, bulletMat); bullet.position.copy(worldGunPos); const bulletSpeed = 700; // Zwiększona prędkość pocisków
-             bullet.userData.velocity = fireDirection.clone().multiplyScalar(bulletSpeed); bullet.userData.ownerId = localPlayerId; bullet.userData.damage = 15; // Standardowe obrażenia
-             scene.add(bullet); bullets.push(bullet); }); }
-        function checkCollisions(targetPlane) { if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible || !gameStarted) return; const planeRadius = targetPlane.userData.collisionRadius; const allObstacles = [...buildings, ...carriers]; for (const obstacle of allObstacles) { if (!obstacle.parent) continue; const obstacleRadius = obstacle.userData.radius; const distSq = targetPlane.position.distanceToSquared(obstacle.position); const minDistSq = (planeRadius + obstacleRadius) * (planeRadius + obstacleRadius); const heightDifference = Math.abs(targetPlane.position.y - obstacle.position.y); const verticalThreshold = obstacle.userData.isCarrier ? 20 : obstacle.geometry.parameters.height / 2 + planeRadius; if (distSq < minDistSq && heightDifference < verticalThreshold) { console.log(`Collision detected for ${targetPlane.userData.id} with ${obstacle.userData.isCarrier ? 'carrier' : 'building'}!`); const distance = Math.sqrt(distSq); const overlap = (planeRadius + obstacleRadius) - distance; const pushDirection = targetPlane.position.clone().sub(obstacle.position).normalize(); targetPlane.position.add(pushDirection.multiplyScalar(overlap * 1.05)); if (targetPlane === plane && targetPlane.userData.id === localPlayerId) { // Tylko lokalny gracz otrzymuje obrażenia od kolizji
-                 const damage = obstacle.userData.isCarrier ? 5 : 20; takeDamage(plane, damage, null); // null oznacza obrażenia od środowiska
-                 if (obstacle.userData.isCarrier) currentForwardSpeedMultiplier *= 0.5; // Spowolnienie na lotniskowcu
-             } break; // Tylko jedna kolizja na klatkę
-             } } }
-        function removeBuilding(b) { scene.remove(b); const i = buildings.indexOf(b); if (i > -1) buildings.splice(i, 1); }
-        function takeDamage(targetPlane, amount, killerId) { if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible) return; targetPlane.userData.health = Math.max(0, targetPlane.userData.health - amount); console.log(`Player ${targetPlane.userData.id} took ${amount} dmg from ${killerId || 'Environment'}. HP: ${targetPlane.userData.health}`); if (targetPlane.userData.health <= 0) { if (targetPlane === plane && targetPlane.userData.id === localPlayerId) { // Jeśli to lokalny gracz
-                 handlePlayerDeath(targetPlane); // Obsłuż śmierć lokalnie
-                 sendWebSocketMessage({ type: 'i_died', killerId: killerId }); // Poinformuj serwer, kto zabił (jeśli wiadomo)
-             } else {
-                 // Dla przeciwników, śmierć jest zarządzana przez serwer (player_update)
-                 // Można tu dodać efekty wizualne śmierci przeciwnika, jeśli serwer od razu nie zaktualizuje stanu
-                  handleOpponentDeathVisuals(targetPlane);
-             } } // Aktualizacja paska zdrowia odbywa się w updateLocalPlayerFromServer lub updateOpponentPlanes
-            if (targetPlane === plane) {
-                 updateHealthBar(plane, localHealthFill); // Natychmiastowa aktualizacja paska lokalnego gracza
-            } }
-        function handlePlayerDeath(deadPlane) { // Wywoływane, gdy lokalny gracz umiera
-            if (!deadPlane.userData.isAlive) return; // Już martwy
-            console.log(`Handling local effects for death of local player ${deadPlane.userData.id}`);
-            deadPlane.userData.isAlive = false;
-            deadPlane.visible = false;
-            localHealthBar.style.display = 'none';
-            keys = {}; // Zresetuj sterowanie
-            touchY = null; touchStartX = null; swipeTurnDirection = 0;
-            // Można dodać efekt eksplozji itp.
-            // Nie respawnuj lokalnie, serwer zarządza respawnem
-        }
-        function handleOpponentDeathVisuals(deadOpponentPlane) {
-             // Ta funkcja może pokazać np. eksplozję dla przeciwnika
-             // zanim serwer przyśle update ustawiający isAlive = false
-             console.log(`Showing death visuals for opponent ${deadOpponentPlane.userData.id}`);
-             // TODO: Add explosion effect at deadOpponentPlane.position
-             deadOpponentPlane.visible = false; // Tymczasowo ukryj
-             const oppData = opponentPlanes[deadOpponentPlane.userData.id];
-             if (oppData && oppData.healthBar) {
-                 oppData.healthBar.style.display = 'none';
-             }
-        }
+        // fireGuns (bez zmian), checkCollisions (bez zmian), removeBuilding (bez zmian), takeDamage (bez zmian), handlePlayerDeath (bez zmian), handleOpponentDeathVisuals (bez zmian)
+        function fireGuns() { if (!plane || !plane.userData.isAlive || !plane.visible || !gameStarted) return; const gPos=plane.userData.gunPositions; if(!gPos||gPos.length===0) return; gPos.forEach(lg=>{const wg=lg.clone().applyMatrix4(plane.matrixWorld); const fDir=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize(); const bGeo=new THREE.SphereGeometry(0.25,8,8); const bMat=new THREE.MeshBasicMaterial({color:0xffff00}); const b=new THREE.Mesh(bGeo,bMat); b.position.copy(wg); const bSpd=700; b.userData.velocity=fDir.clone().multiplyScalar(bSpd); b.userData.ownerId=localPlayerId; b.userData.damage=15; scene.add(b); bullets.push(b);});}
+        function checkCollisions(targetPlane) { if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible || !gameStarted) return; const pRad=targetPlane.userData.collisionRadius; const obstacles=[...buildings, ...carriers]; for (const o of obstacles) { if (!o.parent) continue; const oRad=o.userData.radius; const dSq=targetPlane.position.distanceToSquared(o.position); const minDSq=(pRad+oRad)**2; const hDiff=Math.abs(targetPlane.position.y-o.position.y); const vThresh=o.userData.isCarrier?20:(o.geometry.parameters.height/2+pRad); if (dSq<minDSq && hDiff<vThresh) { console.log(`Collision: ${targetPlane.userData.id} with ${o.userData.isCarrier?'carrier':'building'}`); const dist=Math.sqrt(dSq); const overlap=(pRad+oRad)-dist; const pushDir=targetPlane.position.clone().sub(o.position).normalize(); targetPlane.position.add(pushDir.multiplyScalar(overlap*1.05)); if (targetPlane===plane && targetPlane.userData.id===localPlayerId) { const dmg=o.userData.isCarrier?5:20; takeDamage(plane, dmg, null); if(o.userData.isCarrier) {/*Może spowolnienie?*/} } break; } } }
+        function removeBuilding(b) { scene.remove(b); const i=buildings.indexOf(b); if(i>-1) buildings.splice(i,1); }
+        function takeDamage(targetPlane, amount, killerId) { if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible) return; targetPlane.userData.health = Math.max(0, targetPlane.userData.health - amount); console.log(`Player ${targetPlane.userData.id} took ${amount} dmg from ${killerId||'Env'}. HP: ${targetPlane.userData.health}`); if (targetPlane.userData.health <= 0) { if (targetPlane === plane && targetPlane.userData.id === localPlayerId) { handlePlayerDeath(targetPlane); sendWebSocketMessage({ type: 'i_died', killerId: killerId }); } else { handleOpponentDeathVisuals(targetPlane); } } if (targetPlane === plane) { updateHealthBar(plane, localHealthFill); } }
+        function handlePlayerDeath(deadPlane) { if (!deadPlane.userData.isAlive) return; console.log(`Local death handling for ${deadPlane.userData.id}`); deadPlane.userData.isAlive = false; deadPlane.visible = false; localHealthBar.style.display = 'none'; keys = {}; touchPitchInput=0; touchRollInput=0; }
+        function handleOpponentDeathVisuals(deadOpponentPlane) { console.log(`Death visuals for opponent ${deadOpponentPlane.userData.id}`); deadOpponentPlane.visible = false; const oppData = opponentPlanes[deadOpponentPlane.userData.id]; if (oppData && oppData.healthBar) { oppData.healthBar.style.display = 'none'; } }
 
 
-        // --- Obsługa Sieciowa (Przeciwnicy) ---
+        // --- Obsługa Sieciowa (Przeciwnicy) - ZMIENIONA ---
+        // handleOpponentUpdate teraz ustawia targetQuat na podstawie rotX, rotY, rotZ
         function handleOpponentUpdate(pId, playerData) {
             let oppData = opponentPlanes[pId];
             const isJoining = !oppData;
-             const receivedPlaneType = playerData.planeType || 'airplane'; // Użyj typu z serwera lub domyślnego
+            const receivedPlaneType = playerData.planeType || 'airplane';
 
-            if (isJoining) {
+            if (isJoining) { // Logika tworzenia przeciwnika bez zmian
                 console.log(`Adding opponent: ${pId}, Type: ${receivedPlaneType}`);
                  const createFunc = planeCreators[receivedPlaneType] || planeCreators.airplane;
-                 const opponentPlane = createFunc(0x0055ff); // Domyślny kolor, można dostosować
+                 const opponentPlane = createFunc(0x0055ff);
+                 opponentPlane.rotation.order = 'YXZ'; // Ustaw kolejność dla spójności
                 opponentPlane.userData.id = parseInt(pId);
                 opponentPlane.userData.collisionRadius = 5;
                 opponentPlane.userData.maxHealth = MAX_HEALTH;
-                 opponentPlane.userData.planeType = receivedPlaneType; // Zapisz typ
+                 opponentPlane.userData.planeType = receivedPlaneType;
 
                 const healthBarElement = createHealthBarElement();
                 document.body.appendChild(healthBarElement);
 
                 oppData = {
-                    plane: opponentPlane,
-                    healthBar: healthBarElement,
-                    targetPos: new THREE.Vector3(),
-                    targetQuat: new THREE.Quaternion(),
-                    planeType: receivedPlaneType // Zapisz typ w danych oponnenta
+                    plane: opponentPlane, healthBar: healthBarElement,
+                    targetPos: new THREE.Vector3(), targetQuat: new THREE.Quaternion(),
+                    planeType: receivedPlaneType
                 };
                 opponentPlanes[pId] = oppData;
-                 // Ustaw pozycję/rotację od razu
+                 // Ustaw pozycję/rotację od razu przy dołączeniu
                  oppData.targetPos.set(playerData.x, playerData.y, playerData.z);
-                 oppData.targetQuat.setFromEuler(new THREE.Euler(0, playerData.rotY, playerData.rotZ || 0, 'YXZ'));
+                 // Ustaw targetQuat na podstawie otrzymanych Eulerów
+                 const initialRotation = new THREE.Euler(
+                     playerData.rotX || 0,
+                     playerData.rotY || 0,
+                     playerData.rotZ || 0,
+                     'YXZ' // Ważna kolejność!
+                 );
+                 oppData.targetQuat.setFromEuler(initialRotation);
+
                  opponentPlane.position.copy(oppData.targetPos);
-                 opponentPlane.quaternion.copy(oppData.targetQuat);
+                 opponentPlane.quaternion.copy(oppData.targetQuat); // Ustaw od razu
                 scene.add(opponentPlane);
 
-            } else {
-                 // --- Sprawdzenie czy typ samolotu się zmienił ---
+            } else { // Logika zmiany typu samolotu przeciwnika bez zmian
                  if (oppData.planeType !== receivedPlaneType) {
                      console.log(`Opponent ${pId} changed plane type from ${oppData.planeType} to ${receivedPlaneType}. Replacing model.`);
-                     scene.remove(oppData.plane); // Usuń stary model
-
+                     scene.remove(oppData.plane);
                      const createFunc = planeCreators[receivedPlaneType] || planeCreators.airplane;
-                     const newOpponentPlane = createFunc(0x0055ff); // Stwórz nowy model
+                     const newOpponentPlane = createFunc(0x0055ff);
+                     newOpponentPlane.rotation.order = 'YXZ'; // Ustaw kolejność
                      newOpponentPlane.userData.id = parseInt(pId);
                      newOpponentPlane.userData.collisionRadius = 5;
                      newOpponentPlane.userData.maxHealth = MAX_HEALTH;
                      newOpponentPlane.userData.planeType = receivedPlaneType;
-
-                     oppData.plane = newOpponentPlane; // Podmień model w danych
-                     oppData.planeType = receivedPlaneType; // Zaktualizuj typ w danych
-
-                     // Ustaw nowemu modelowi aktualną pozycję/rotację
-                     newOpponentPlane.position.copy(oppData.targetPos);
-                     newOpponentPlane.quaternion.copy(oppData.targetQuat);
-                     scene.add(newOpponentPlane); // Dodaj nowy model do sceny
+                     oppData.plane = newOpponentPlane;
+                     oppData.planeType = receivedPlaneType;
+                     newOpponentPlane.position.copy(oppData.targetPos); // Skopiuj ostatnią znaną pozycję celu
+                     newOpponentPlane.quaternion.copy(oppData.targetQuat); // Skopiuj ostatnią znaną rotację celu
+                     scene.add(newOpponentPlane);
                  }
             }
 
@@ -1380,76 +796,53 @@
             const wasAlive = opponent.userData.isAlive;
             const isNowAlive = playerData.isAlive;
 
-            // Aktualizuj cele interpolacji
+            // Aktualizuj cele interpolacji (Pozycja bez zmian)
             oppData.targetPos.set(playerData.x, playerData.y, playerData.z);
-            oppData.targetQuat.setFromEuler(new THREE.Euler(0, playerData.rotY, playerData.rotZ || 0, 'YXZ'));
+            // Ustaw NOWY cel Quaternion na podstawie otrzymanych Eulerów
+             const targetRotation = new THREE.Euler(
+                 playerData.rotX || 0,
+                 playerData.rotY || 0,
+                 playerData.rotZ || 0,
+                 'YXZ' // Ważna kolejność!
+             );
+            oppData.targetQuat.setFromEuler(targetRotation);
 
-            // Aktualizuj stan przeciwnika
+            // Aktualizuj stan przeciwnika (bez zmian)
             opponent.userData.health = playerData.health;
             opponent.userData.kills = playerData.kills;
             opponent.userData.isAlive = isNowAlive;
 
+            // Zarządzanie widocznością i paskiem zdrowia (bez zmian)
             if (isNowAlive) {
                 opponent.visible = true;
-                if (healthBar) {
-                    healthBar.style.display = 'block';
-                     // updateHealthBar(opponent, healthBar.firstChild); // Robione w updateOpponentPlanes
-                     // positionHealthBar(opponent, healthBar); // Robione w updateOpponentPlanes
-                }
+                if (healthBar) { healthBar.style.display = 'block'; }
                 if (!wasAlive) {
                     console.log(`Opponent ${pId} respawned or joined.`);
-                     // Przy respawnie przeciwnika, ustaw jego pozycję/rotację bezpośrednio
-                     opponent.position.copy(oppData.targetPos);
-                     opponent.quaternion.copy(oppData.targetQuat);
+                    // Ustaw bezpośrednio przy respawnie
+                    opponent.position.copy(oppData.targetPos);
+                    opponent.quaternion.copy(oppData.targetQuat);
                 }
             } else {
                 opponent.visible = false;
-                if (healthBar) {
-                    healthBar.style.display = 'none';
-                }
-                if (wasAlive) {
-                    console.log(`Opponent ${pId} died.`);
-                    // handleOpponentDeathVisuals(opponent); // Pokaż efekty śmierci
-                }
+                if (healthBar) { healthBar.style.display = 'none'; }
+                if (wasAlive) { console.log(`Opponent ${pId} died.`); }
             }
         }
-        function removeOpponent(pId) {
-            console.log("Removing opponent:", pId);
-            const o = opponentPlanes[pId];
-            if (o) {
-                 if (o.plane) scene.remove(o.plane);
-                if (o.healthBar && o.healthBar.parentNode) {
-                    o.healthBar.parentNode.removeChild(o.healthBar);
-                }
-                delete opponentPlanes[pId];
-            }
-        }
+        // removeOpponent (bez zmian)
+        function removeOpponent(pId) { console.log("Removing opponent:", pId); const o=opponentPlanes[pId]; if(o){if(o.plane) scene.remove(o.plane); if(o.healthBar&&o.healthBar.parentNode){o.healthBar.parentNode.removeChild(o.healthBar);} delete opponentPlanes[pId];}}
 
-        // --- UI i Elementy Pomocnicze ---
-        // createHealthBarElement, updateHealthBar, positionHealthBar - bez zmian
-        function createHealthBarElement() { const b = document.createElement('div'); b.className = 'healthBar'; const f = document.createElement('div'); b.appendChild(f); b.style.display = 'none'; return b; }
-        function updateHealthBar(t, f) { if (!t || !f || t.userData.health === undefined || t.userData.maxHealth === undefined) return; const p = (t.userData.health / t.userData.maxHealth) * 100; f.style.width = `${Math.max(0, p)}%`; if (p > 60) f.style.backgroundColor = 'limegreen'; else if (p > 30) f.style.backgroundColor = 'gold'; else f.style.backgroundColor = 'red'; }
-        function positionHealthBar(t, b) { if (!t || !t.parent || !t.visible || !b || !camera) { if (b) b.style.display = 'none'; return; } const v = new THREE.Vector3(); v.copy(t.position).y += 4; v.project(camera); if (v.z > 1 || v.z < -1) { b.style.display = 'none'; return; } const x = (v.x * 0.5 + 0.5) * renderer.domElement.clientWidth, y = (-v.y * 0.5 + 0.5) * renderer.domElement.clientHeight; b.style.left = `${x}px`; b.style.top = `${y - 10}px`; b.style.display = 'block'; }
+        // --- UI i Elementy Pomocnicze (bez zmian) ---
+        function createHealthBarElement() { const b=document.createElement('div'); b.className='healthBar'; const f=document.createElement('div'); b.appendChild(f); b.style.display='none'; return b; }
+        function updateHealthBar(t, f) { if(!t||!f||t.userData.health===undefined||t.userData.maxHealth===undefined) return; const p=(t.userData.health/t.userData.maxHealth)*100; f.style.width=`${Math.max(0,p)}%`; if(p>60)f.style.backgroundColor='limegreen'; else if(p>30)f.style.backgroundColor='gold'; else f.style.backgroundColor='red';}
+        function positionHealthBar(t, b) { if (!t||!t.parent||!t.visible||!b||!camera) { if(b)b.style.display='none'; return; } const v=new THREE.Vector3(); v.copy(t.position).y+=4; v.project(camera); if(v.z>1||v.z<-1){b.style.display='none'; return;} const x=(v.x*0.5+0.5)*renderer.domElement.clientWidth, y=(-v.y*0.5+0.5)*renderer.domElement.clientHeight; b.style.left=`${x}px`; b.style.top=`${y-10}px`; b.style.display='block';}
 
 
-        // --- Event Listeners (bez zmian) ---
-        function onWindowResize() {
-             // Aktualizuj główną kamerę i renderer
-             if (camera && renderer) {
-                 camera.aspect = window.innerWidth / window.innerHeight;
-                 camera.updateProjectionMatrix();
-                 renderer.setSize(window.innerWidth, window.innerHeight);
-             }
-             // Aktualizuj kamerę i renderer popupu, jeśli istnieje
-             if (popupCamera && popupRenderer && planePresentationCanvas) {
-                  const aspect = planePresentationCanvas.clientWidth / planePresentationCanvas.clientHeight;
-                  popupCamera.aspect = aspect;
-                  popupCamera.updateProjectionMatrix();
-                  popupRenderer.setSize(planePresentationCanvas.clientWidth, planePresentationCanvas.clientHeight);
-             }
-         }
+        // --- Event Listeners ---
+        // onWindowResize (bez zmian)
+        function onWindowResize() { if(camera&&renderer){camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);} if(popupCamera&&popupRenderer&&planePresentationCanvas){const a=planePresentationCanvas.clientWidth/planePresentationCanvas.clientHeight; popupCamera.aspect=a; popupCamera.updateProjectionMatrix(); popupRenderer.setSize(planePresentationCanvas.clientWidth,planePresentationCanvas.clientHeight);}}
+        // Klawisze: Spacja (fire) i Tab (ranking) bez zmian. Reszta zmieniona dla nowej kontroli.
         function onKeyDown(e) {
-             if (!gameStarted) return; // Ignoruj klawisze przed startem gry
+             if (!gameStarted) return;
              keys[e.key.toLowerCase()] = true;
              if (e.key === ' ' && plane && plane.userData.isAlive && plane.visible) fireGuns();
              if (e.key === 'Tab') { e.preventDefault(); showRanking = true; updateRankingWebSocket(); rankingDiv.style.display = 'block'; }
@@ -1459,31 +852,57 @@
              keys[e.key.toLowerCase()] = false;
              if (e.key === 'Tab') { showRanking = false; rankingDiv.style.display = 'none'; }
          }
+        // ZMIENIONE Sterowanie Dotykowe
         function onTouchStart(e) {
-             if (!gameStarted || e.target.id === 'fireButton' || e.target.closest('#planeSelectionPopup')) return; // Ignoruj dotyk w popupie
+             if (!gameStarted || e.target.id === 'fireButton' || e.target.closest('#planeSelectionPopup')) return;
              e.preventDefault();
              if (e.touches.length > 0) {
-                 touchY = e.touches[0].clientY;
-                 touchStartX = e.touches[0].clientX;
-                 swipeTurnDirection = 0;
+                 const touch = e.touches[0];
+                 touchStartX = touch.clientX;
+                 touchStartY = touch.clientY;
+                 // Określ początkowy input pitch na podstawie pozycji Y
+                 const screenHeight = window.innerHeight;
+                 if (touchStartY < screenHeight * 0.4) { // Górne 40% ekranu
+                     touchPitchInput = -1; // Pitch up
+                 } else if (touchStartY > screenHeight * 0.6) { // Dolne 40% ekranu
+                     touchPitchInput = 1; // Pitch down
+                 } else {
+                     touchPitchInput = 0; // Środek - neutralny pitch
+                 }
+                 touchRollInput = 0; // Zresetuj roll przy nowym dotknięciu
              }
          }
         function onTouchMove(e) {
              if (!gameStarted || e.target.id === 'fireButton' || e.target.closest('#planeSelectionPopup')) return;
              e.preventDefault();
-             if (e.touches.length > 0) {
-                 const cX = e.touches[0].clientX;
-                 touchY = e.touches[0].clientY;
-                 if (touchStartX !== null) {
-                     swipeTurnDirection = cX - touchStartX;
+             if (e.touches.length > 0 && touchStartX !== null && touchStartY !== null) {
+                 const touch = e.touches[0];
+                 const currentX = touch.clientX;
+                 const currentY = touch.clientY;
+
+                 // Oblicz różnicę w X dla Roll
+                 const deltaX = currentX - touchStartX;
+                 // Normalizuj input roll do zakresu ~ -1 do 1 (dostosuj dzielnik do czułości)
+                 touchRollInput = Math.max(-1, Math.min(1, deltaX / (window.innerWidth * 0.2)));
+
+                 // Aktualizuj pitch na podstawie aktualnej pozycji Y (jak w onTouchStart)
+                 const screenHeight = window.innerHeight;
+                 if (currentY < screenHeight * 0.4) {
+                     touchPitchInput = -1;
+                 } else if (currentY > screenHeight * 0.6) {
+                     touchPitchInput = 1;
+                 } else {
+                     touchPitchInput = 0;
                  }
              }
          }
         function onTouchEnd(e) {
              if (!gameStarted) return;
-             touchY = null;
+             // Zresetuj inputy dotykowe po puszczeniu palca
+             touchPitchInput = 0;
+             touchRollInput = 0;
              touchStartX = null;
-             // Nie zeruj swipeTurnDirection tutaj, aby wygaszanie działało
+             touchStartY = null;
          }
 
     </script>
