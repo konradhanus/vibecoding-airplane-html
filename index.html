@@ -64,7 +64,7 @@
         const CAMERA_HEIGHT = 5;
         const MIN_GROUND_ALTITUDE = 2; // Minimalna wysokość nad ziemią/wodą
 
-        // --- Zmienne Globalne ---
+        // --- Zmienne Globalne (bez zmian) ---
         let localPlayerId = null;
         let opponentPlanes = {};
         let showRanking = false;
@@ -110,8 +110,8 @@
         // --- Mapa funkcji tworzących samoloty (bez zmian) ---
         const planeCreators = { spad: createSPAD, redbaron: createRedBaron, airplane: createAirplane };
 
-        // --- NOWE: Zmienne dla Eksplozji ---
-        let activeExplosions = []; // Przechowuje aktywne grupy cząsteczek eksplozji
+        // --- Zmienne dla Eksplozji (bez zmian) ---
+        let activeExplosions = [];
 
         // --- Inicjalizacja Popupu (bez zmian) ---
         showPlaneSelectionPopup();
@@ -136,7 +136,7 @@
         function updateLocalPlayerFromServer(sD){ if(!plane||localPlayerId===null)return; const wA=plane.userData.isAlive; const iNA=sD.isAlive; plane.userData.health=sD.health; plane.userData.kills=sD.kills; plane.userData.isAlive=iNA; if((iNA&&!wA)||!plane.visible){ console.log("Set local pos/rot from server:",sD.x,sD.y,sD.z,sD.rotY,sD.rotX,sD.rotZ); if(sD.x!==undefined)plane.position.x=sD.x; if(sD.y!==undefined)plane.position.y=sD.y; if(sD.z!==undefined)plane.position.z=sD.z; const iR=new THREE.Euler(sD.rotX||0,sD.rotY||0,sD.rotZ||0,'YXZ'); plane.setRotationFromEuler(iR); plane.quaternion.setFromEuler(iR); } if(iNA){ plane.visible=true; localHealthBar.style.display='block'; if(!wA){ console.log("Local respawned by server."); keys={}; touchPitchInput=0; touchRollInput=0; } updateHealthBar(plane,localHealthFill); positionHealthBar(plane,localHealthBar); }else if(wA){ console.log("Local killed by server."); handlePlayerDeath(plane); }}
         function sendStateUpdateIfNeeded(){ if(!isConnected||!plane||!plane.userData.isAlive||!plane.visible||localPlayerId===null)return; const cS={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotX:parseFloat(plane.rotation.x.toFixed(3)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3))}; if(JSON.stringify(cS)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:cS});lastSentState=cS;}}
 
-        // --- Pętla Główna Gry ---
+        // --- Pętla Główna Gry --- ZMIENIONE STEROWANIE PITCH
         function animate(time) {
              if (!gameStarted) return;
             requestAnimationFrame(animate);
@@ -145,36 +145,47 @@
             // --- Sterowanie Lokalnym Graczem ---
             if (plane && plane.userData.isAlive && plane.visible) {
                 let pitchDelta=0, rollDelta=0, yawDelta=0;
-                if(keys['arrowup']||keys['w'])pitchDelta-=PITCH_SPEED*deltaTime;
-                if(keys['arrowdown']||keys['s'])pitchDelta+=PITCH_SPEED*deltaTime;
-                if(keys['arrowleft']||keys['a'])rollDelta+=ROLL_SPEED*deltaTime;
-                if(keys['arrowright']||keys['d'])rollDelta-=ROLL_SPEED*deltaTime;
+
+                // Pitch (Góra/Dół) - ZMIENIONE ZNAKI
+                if(keys['arrowup']||keys['w']) pitchDelta += PITCH_SPEED * deltaTime; // Pitch Down (Nurkowanie)
+                if(keys['arrowdown']||keys['s']) pitchDelta -= PITCH_SPEED * deltaTime; // Pitch Up (Wznoszenie)
+
+                // Roll (Lewo/Prawo) - bez zmian od poprzedniej modyfikacji
+                if(keys['arrowleft']||keys['a']) rollDelta -= ROLL_SPEED * deltaTime; // Roll Left
+                if(keys['arrowright']||keys['d']) rollDelta += ROLL_SPEED * deltaTime; // Roll Right
+
+                // Yaw (Ster kierunku) - bez zmian
                 if(keys['q'])yawDelta+=YAW_SPEED*deltaTime;
                 if(keys['e'])yawDelta-=YAW_SPEED*deltaTime;
-                if(hasTouch){if(touchPitchInput!==0){pitchDelta+=touchPitchInput*PITCH_SPEED*deltaTime;}if(touchRollInput!==0){rollDelta-=touchRollInput*ROLL_SPEED*deltaTime*1.5;}}
+
+                // Sterowanie Dotykowe - ZMIENIONY ZNAK PRZY PITCH
+                if(hasTouch){
+                    if(touchPitchInput!==0){ pitchDelta += touchPitchInput * PITCH_SPEED * deltaTime; } // Zmieniono += na -=
+                    if(touchRollInput!==0){ rollDelta += touchRollInput * ROLL_SPEED * deltaTime * 1.5; }
+                }
+
+                // Zastosowanie Rotacji - bez zmian
                 if(Math.abs(pitchDelta)>0.001)plane.rotateX(pitchDelta);
                 if(Math.abs(rollDelta)>0.001)plane.rotateZ(rollDelta);
                 if(Math.abs(yawDelta)>0.001)plane.rotateY(yawDelta);
 
+                // Ruch do przodu i kolizje - bez zmian
                 const forwardDir=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
                 let currentForwardSpeed=FORWARD_SPEED;
                 if(plane.position.y<GROUND_EFFECT_ALTITUDE){const f=Math.max(0,plane.position.y/GROUND_EFFECT_ALTITUDE);currentForwardSpeed*=f; currentPropellerSpeedMultiplier=BASE_PROPELLER_SPEED_MULTIPLIER*f;}else{currentPropellerSpeedMultiplier+=(BASE_PROPELLER_SPEED_MULTIPLIER-currentPropellerSpeedMultiplier)*5*deltaTime;}
                 const forwardMove=currentForwardSpeed*deltaTime;
                 plane.position.add(forwardDir.multiplyScalar(forwardMove));
 
-                // --- Kolizja z Ziemią/Wodą ---
                 if (plane.position.y < MIN_GROUND_ALTITUDE && plane.userData.isAlive) {
                     console.log("Collision with ground/water!");
-                    createExplosion(plane.position.clone().setY(MIN_GROUND_ALTITUDE)); // Eksplozja na powierzchni
-                    takeDamage(plane, MAX_HEALTH * 2, 'Ground'); // Zadaj śmiertelne obrażenia
-                    // handlePlayerDeath zostanie wywołane w takeDamage
+                    createExplosion(plane.position.clone().setY(MIN_GROUND_ALTITUDE));
+                    takeDamage(plane, MAX_HEALTH * 2, 'Ground');
                 }
 
                 if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; }
 
-                // --- Kolizje z Obiektami i Innymi Graczami ---
-                checkCollisions(plane); // Sprawdza budynki/lotniskowce
-                checkPlayerCollisions(plane); // Sprawdza innych graczy
+                checkCollisions(plane);
+                checkPlayerCollisions(plane);
 
                 positionHealthBar(plane, localHealthBar);
             }
@@ -183,7 +194,7 @@
             updateTiles();
             updateBullets(deltaTime);
             updateOpponentPlanes(deltaTime);
-            updateExplosions(deltaTime); // <<<< AKTUALIZACJA EKSPLOZJI
+            updateExplosions(deltaTime);
             updateCamera();
             renderer.render(scene, camera);
             updateMinimap();
@@ -195,209 +206,26 @@
         function createBuildings(){ const m=new THREE.MeshStandardMaterial({color:0x555555,roughness:0.7,metalness:0.3}); for(let i=0; i<150; i++){ const w=Math.random()*15+10, d=Math.random()*15+10, h=Math.random()*120+50; const g=new THREE.BoxGeometry(w,h,d), b=new THREE.Mesh(g,m); b.position.set((Math.random()-0.5)*(TILE_SIZE*0.9),h/2,(Math.random()-0.5)*(TILE_SIZE*0.9)); b.userData.radius=Math.max(w,d)/2*1.1; b.userData.health=3; buildings.push(b); scene.add(b);}}
         function createCarriers(){ const g=new THREE.BoxGeometry(80,20,500), m=new THREE.MeshStandardMaterial({color:0x444455, roughness:0.8}); const p=[{x:0,z:-CARRIER_DISTANCE,r:0},{x:CARRIER_DISTANCE,z:0,r:Math.PI/2},{x:0,z:CARRIER_DISTANCE,r:0},{x:-CARRIER_DISTANCE,z:0,r:Math.PI/2}]; p.forEach(pos=>{ const c=new THREE.Mesh(g,m); c.position.set(pos.x,10,pos.z); c.rotation.y=pos.r; c.userData.radius=250; c.userData.isCarrier=true; c.userData.health=Infinity; carriers.push(c); scene.add(c);});}
 
-        // --- NOWE: Funkcje Eksplozji ---
-        function createExplosion(position) {
-            console.log("Creating explosion at:", position);
-            const explosionGroup = new THREE.Group();
-            explosionGroup.position.copy(position);
-            const particleCount = 50;
-            const particleSize = 0.5;
-            const explosionSpeed = 40;
-            const maxLife = 1.5; // Czas trwania eksplozji w sekundach
+        // --- Funkcje Eksplozji (bez zmian) ---
+        function createExplosion(position){ console.log("Creating explosion at:",position); const eg=new THREE.Group(); eg.position.copy(position); const pC=50; const pS=0.5; const eS=40; const mL=1.5; const pG=new THREE.SphereGeometry(pS,4,4); for(let i=0; i<pC; i++){ const c=new THREE.Color().lerpColors(new THREE.Color(0xffff00),new THREE.Color(0xff0000),Math.random()); const pM=new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:1.0}); const p=new THREE.Mesh(pG,pM); p.position.set((Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2,(Math.random()-0.5)*pS*2); p.userData.velocity=new THREE.Vector3((Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5)).normalize().multiplyScalar(eS*(0.5+Math.random()*0.5)); p.userData.life=0; p.userData.maxLife=mL*(0.7+Math.random()*0.3); eg.add(p);} eg.userData.life=0; eg.userData.maxLife=mL; scene.add(eg); activeExplosions.push(eg);}
+        function updateExplosions(dT){ for(let i=activeExplosions.length-1; i>=0; i--){ const e=activeExplosions[i]; e.userData.life+=dT; if(e.userData.life>=e.userData.maxLife){scene.remove(e); activeExplosions.splice(i,1); continue;} for(let j=e.children.length-1; j>=0; j--){ const p=e.children[j]; p.userData.life+=dT; if(p.userData.life>=p.userData.maxLife){e.remove(p); continue;} p.position.add(p.userData.velocity.clone().multiplyScalar(dT)); p.userData.velocity.y-=9.8*dT*2; const lR=p.userData.life/p.userData.maxLife; p.material.opacity=1.0-lR; p.material.color.lerp(new THREE.Color(0x555555),dT*2); p.scale.multiplyScalar(1-dT*0.5);}}}
 
-            const particleGeo = new THREE.SphereGeometry(particleSize, 4, 4); // Prosta geometria
-
-            for (let i = 0; i < particleCount; i++) {
-                // Losowy kolor (żółty -> pomarańczowy -> czerwony)
-                const color = new THREE.Color().lerpColors(new THREE.Color(0xffff00), new THREE.Color(0xff0000), Math.random());
-                const particleMat = new THREE.MeshBasicMaterial({
-                    color: color,
-                    transparent: true,
-                    opacity: 1.0
-                });
-                const particle = new THREE.Mesh(particleGeo, particleMat);
-
-                // Losowa pozycja początkowa blisko centrum
-                particle.position.set(
-                    (Math.random() - 0.5) * particleSize * 2,
-                    (Math.random() - 0.5) * particleSize * 2,
-                    (Math.random() - 0.5) * particleSize * 2
-                );
-
-                // Losowa prędkość na zewnątrz
-                particle.userData.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5),
-                    (Math.random() - 0.5),
-                    (Math.random() - 0.5)
-                ).normalize().multiplyScalar(explosionSpeed * (0.5 + Math.random() * 0.5)); // Zmienność prędkości
-
-                particle.userData.life = 0;
-                particle.userData.maxLife = maxLife * (0.7 + Math.random() * 0.3); // Zmienność czasu życia cząstki
-
-                explosionGroup.add(particle);
-            }
-
-            explosionGroup.userData.life = 0;
-            explosionGroup.userData.maxLife = maxLife; // Czas życia całej grupy
-
-            scene.add(explosionGroup);
-            activeExplosions.push(explosionGroup);
-        }
-
-        function updateExplosions(deltaTime) {
-            for (let i = activeExplosions.length - 1; i >= 0; i--) {
-                const explosion = activeExplosions[i];
-                explosion.userData.life += deltaTime;
-
-                // Usuń całą grupę, jeśli jej czas życia minął
-                if (explosion.userData.life >= explosion.userData.maxLife) {
-                    scene.remove(explosion);
-                    activeExplosions.splice(i, 1);
-                    continue;
-                }
-
-                // Aktualizuj poszczególne cząsteczki
-                for (let j = explosion.children.length - 1; j >= 0; j--) {
-                    const particle = explosion.children[j];
-                    particle.userData.life += deltaTime;
-
-                    if (particle.userData.life >= particle.userData.maxLife) {
-                        explosion.remove(particle); // Usuń cząsteczkę z grupy
-                        continue;
-                    }
-
-                    // Ruch
-                    particle.position.add(particle.userData.velocity.clone().multiplyScalar(deltaTime));
-                    // Grawitacja (opcjonalnie)
-                    particle.userData.velocity.y -= 9.8 * deltaTime * 2; // Przyspieszona grawitacja dla efektu
-
-                    // Zanikanie
-                    const lifeRatio = particle.userData.life / particle.userData.maxLife;
-                    particle.material.opacity = 1.0 - lifeRatio;
-
-                    // Zmiana koloru w czasie (np. do szarego)
-                    particle.material.color.lerp(new THREE.Color(0x555555), deltaTime * 2); // Stopniowo szarzeje
-
-                    // Zmniejszanie (opcjonalnie)
-                    particle.scale.multiplyScalar(1 - deltaTime * 0.5);
-                }
-            }
-        }
-
-        // --- Funkcje Aktualizujące ---
+        // --- Funkcje Aktualizujące (bez zmian) ---
         function updateOpponentPlanes(dT){ for(const id in opponentPlanes){const oD=opponentPlanes[id]; const o=oD.plane; const hB=oD.healthBar; if(!o||!o.parent)continue; if(o.userData.isAlive){ if(oD.targetPos){o.position.lerp(oD.targetPos,INTERPOLATION_FACTOR*dT);} if(oD.targetQuat){o.quaternion.slerp(oD.targetQuat,INTERPOLATION_FACTOR*dT);} if(o.userData.propeller){o.userData.propeller.rotation.z+=BASE_PROPELLER_SPEED_MULTIPLIER*0.15*dT;} if(hB){updateHealthBar(o,hB.firstChild); positionHealthBar(o,hB);}}}}
         function updateTiles(){ if(!plane||!plane.parent||!gameStarted)return; const px=Math.round(plane.position.x/TILE_SIZE), pz=Math.round(plane.position.z/TILE_SIZE); tiles.forEach(t=>{const wx=(px+t.userData.gridX)*TILE_SIZE; const wz=(pz+t.userData.gridZ)*TILE_SIZE; t.position.set(wx,0,wz);});}
-        function updateBullets(dT){ if(!gameStarted)return; const rangeSq=6000*6000; for(let i=bullets.length-1; i>=0; i--){ const b=bullets[i]; if(!b||!b.parent){bullets.splice(i,1); continue;} b.userData.life=(b.userData.life||0)+dT; if(b.userData.life>4.0){scene.remove(b); bullets.splice(i,1); continue;} b.position.add(b.userData.velocity.clone().multiplyScalar(dT)); let hit=false; for(const bd of buildings){ if(!bd.parent)continue; if(b.position.distanceToSquared(bd.position)<(bd.userData.radius+0.5)**2){ bd.userData.health--; if(bd.userData.health<=0){ removeBuilding(bd); if(b.userData.ownerId===localPlayerId)score+=25;} /*createExplosion(b.position.clone()); // Opcjonalnie: mała eksplozja przy trafieniu pociskiem*/ scene.remove(b); bullets.splice(i,1); hit=true; break;}} if(hit)continue; for(const cr of carriers){ if(!cr.parent)continue; if(b.position.distanceToSquared(cr.position)<(cr.userData.radius+0.5)**2 && Math.abs(b.position.y-cr.position.y)<15){ /*createExplosion(b.position.clone());*/ scene.remove(b); bullets.splice(i,1); hit=true; break;}} if(hit)continue; if(b.userData.ownerId===localPlayerId){for(const oId in opponentPlanes){ const oData=opponentPlanes[oId]; if(!oData||!oData.plane||!oData.plane.userData.isAlive)continue; if(b.position.distanceToSquared(oData.plane.position)<(oData.plane.userData.collisionRadius+0.5)**2){ console.log(`LP hit opp ${oId}!`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(oId),damage:b.userData.damage}); /*createExplosion(b.position.clone());*/ scene.remove(b); bullets.splice(i,1); hit=true; break;}}} if(hit)continue; if(b.position.lengthSq()>rangeSq){scene.remove(b); bullets.splice(i,1);}}}
+        function updateBullets(dT){ if(!gameStarted)return; const rangeSq=6000*6000; for(let i=bullets.length-1; i>=0; i--){ const b=bullets[i]; if(!b||!b.parent){bullets.splice(i,1); continue;} b.userData.life=(b.userData.life||0)+dT; if(b.userData.life>4.0){scene.remove(b); bullets.splice(i,1); continue;} b.position.add(b.userData.velocity.clone().multiplyScalar(dT)); let hit=false; for(const bd of buildings){ if(!bd.parent)continue; if(b.position.distanceToSquared(bd.position)<(bd.userData.radius+0.5)**2){ bd.userData.health--; if(bd.userData.health<=0){ removeBuilding(bd); if(b.userData.ownerId===localPlayerId)score+=25;} scene.remove(b); bullets.splice(i,1); hit=true; break;}} if(hit)continue; for(const cr of carriers){ if(!cr.parent)continue; if(b.position.distanceToSquared(cr.position)<(cr.userData.radius+0.5)**2 && Math.abs(b.position.y-cr.position.y)<15){ scene.remove(b); bullets.splice(i,1); hit=true; break;}} if(hit)continue; if(b.userData.ownerId===localPlayerId){for(const oId in opponentPlanes){ const oData=opponentPlanes[oId]; if(!oData||!oData.plane||!oData.plane.userData.isAlive)continue; if(b.position.distanceToSquared(oData.plane.position)<(oData.plane.userData.collisionRadius+0.5)**2){ console.log(`LP hit opp ${oId}!`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(oId),damage:b.userData.damage}); scene.remove(b); bullets.splice(i,1); hit=true; break;}}} if(hit)continue; if(b.position.lengthSq()>rangeSq){scene.remove(b); bullets.splice(i,1);}}}
         function updateCamera(){ if(!plane||!plane.parent||!gameStarted)return; const o=new THREE.Vector3(0,CAMERA_HEIGHT,-CAMERA_DISTANCE); const cTP=o.applyMatrix4(plane.matrixWorld); camera.position.lerp(cTP,0.1); const lAT=new THREE.Vector3(0,0,10).applyMatrix4(plane.matrixWorld); camera.lookAt(lAT);}
         function updateMinimap(){ if(!minimapCtx||!plane||!plane.parent||!gameStarted) return; minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.scale(MAP_SCALE,MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x,-plane.position.z); tiles.forEach(t=>{const c=t.userData.gridX===0&&t.userData.gridZ===0?'rgb(34,136,34)':'rgb(0,51,102)'; minimapCtx.fillStyle=c; minimapCtx.fillRect(t.position.x-TILE_SIZE/2, t.position.z-TILE_SIZE/2, TILE_SIZE, TILE_SIZE);}); minimapCtx.fillStyle='grey'; buildings.forEach(b=>{if(!b.parent)return; const w=b.geometry.parameters.width*1.5, d=b.geometry.parameters.depth*1.5; minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);}); minimapCtx.fillStyle='darkgrey'; carriers.forEach(c=>{if(!c.parent)return; minimapCtx.save(); minimapCtx.translate(c.position.x,c.position.z); minimapCtx.rotate(c.rotation.y); const w=c.geometry.parameters.width, d=c.geometry.parameters.depth; minimapCtx.fillRect(-w/2,-d/2,w,d); minimapCtx.restore();}); minimapCtx.fillStyle='blue'; for (const id in opponentPlanes){const o=opponentPlanes[id]; if(o&&o.plane&&o.plane.userData.isAlive){minimapCtx.beginPath(); minimapCtx.arc(o.plane.position.x,o.plane.position.z,150,0,Math.PI*2); minimapCtx.fill();}} minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.fillStyle='red'; minimapCtx.beginPath(); minimapCtx.moveTo(0,-6); minimapCtx.lineTo(-4,6); minimapCtx.lineTo(4,6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
         function updateScoreboard(){ if (!plane||localPlayerId===null||plane.userData.kills===undefined||!gameStarted) return; scoreDiv.innerText=`Kills: ${plane.userData.kills} / Score: ${score}`; }
         function updateRankingWebSocket(){ rankingList.innerHTML=''; const pD=[]; if(plane&&localPlayerId!==null&&plane.userData.kills!==undefined&&gameStarted){pD.push({id:localPlayerId,kills:plane.userData.kills,name:`Ty (${plane.userData.planeType||'?'})`});} for(const pI in opponentPlanes){const oD=opponentPlanes[pI]; if(oD&&oD.plane&&oD.plane.userData.kills!==undefined){const n=`Gracz ${String(pI).substr(-4)} (${oD.planeType||'?'})`; pD.push({id:pI,kills:oD.plane.userData.kills,name:n});}} pD.sort((a,b)=>b.kills-a.kills); pD.forEach(p=>{const li=document.createElement('li'),nS=document.createElement('span'),kS=document.createElement('span'); nS.textContent=p.name; kS.textContent=p.kills; if(p.id==localPlayerId)li.style.color='yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li);});}
 
-        // --- Akcje Gracza i Kolizje ---
+        // --- Akcje Gracza i Kolizje (bez zmian w logice poza animate) ---
         function fireGuns(){ if(!plane||!plane.userData.isAlive||!plane.visible||!gameStarted)return; const gP=plane.userData.gunPositions; if(!gP||gP.length===0)return; gP.forEach(lp=>{const wg=lp.clone().applyMatrix4(plane.matrixWorld); const fd=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion).normalize(); const bg=new THREE.SphereGeometry(0.25,8,8); const bm=new THREE.MeshBasicMaterial({color:0xffff00}); const b=new THREE.Mesh(bg,bm); b.position.copy(wg); const bS=700; b.userData.velocity=fd.clone().multiplyScalar(bS); b.userData.ownerId=localPlayerId; b.userData.damage=15; scene.add(b); bullets.push(b);});}
-        // checkCollisions - teraz wywołuje eksplozję przy kolizji gracza
-        function checkCollisions(targetPlane) {
-            if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible || !gameStarted) return;
-            const pRad=targetPlane.userData.collisionRadius;
-            const obstacles=[...buildings, ...carriers];
-            for (const o of obstacles) {
-                if (!o.parent) continue;
-                const oRad=o.userData.radius;
-                const dSq=targetPlane.position.distanceToSquared(o.position);
-                const minDSq=(pRad+oRad)**2;
-                const hDiff=Math.abs(targetPlane.position.y-o.position.y);
-                const vThresh=o.userData.isCarrier?20:(o.geometry.parameters.height/2+pRad);
-
-                if (dSq<minDSq && hDiff<vThresh) {
-                    console.log(`Collision: ${targetPlane.userData.id} with ${o.userData.isCarrier?'carrier':'building'}`);
-                    const dist=Math.sqrt(dSq);
-                    const overlap=(pRad+oRad)-dist;
-                    const pushDir=targetPlane.position.clone().sub(o.position).normalize();
-                    targetPlane.position.add(pushDir.multiplyScalar(overlap*1.05)); // Odepchnięcie
-
-                    if (targetPlane === plane && targetPlane.userData.id === localPlayerId) {
-                        const damage = o.userData.isCarrier ? MAX_HEALTH : MAX_HEALTH * 2; // Lotniskowiec mniej boli? Budynek zabija.
-                        createExplosion(targetPlane.position.clone()); // <<< EKSPLOZJA
-                        takeDamage(plane, damage, o.userData.isCarrier ? 'Carrier' : 'Building'); // Zadaj obrażenia (potencjalnie śmiertelne)
-                    }
-                    // Nie przerywaj pętli, gracz może uderzyć w wiele rzeczy naraz teoretycznie
-                    // Ale dla uproszczenia i wydajności, można by tu dać 'break;'
-                }
-            }
-        }
-        // NOWA funkcja do sprawdzania kolizji gracz-gracz
-        function checkPlayerCollisions(localPlane) {
-            if (!localPlane || !localPlane.userData.isAlive || !localPlane.visible) return;
-
-            const localRadius = localPlane.userData.collisionRadius;
-
-            for (const opponentId in opponentPlanes) {
-                const oppData = opponentPlanes[opponentId];
-                if (!oppData || !oppData.plane || !oppData.plane.userData.isAlive || !oppData.plane.visible) continue;
-
-                const opponentPlane = oppData.plane;
-                const opponentRadius = opponentPlane.userData.collisionRadius;
-                const combinedRadius = localRadius + opponentRadius;
-                const distanceSq = localPlane.position.distanceToSquared(opponentPlane.position);
-
-                if (distanceSq < combinedRadius * combinedRadius) {
-                    console.log(`Collision between local player ${localPlayerId} and opponent ${opponentId}!`);
-
-                    // Punkt kolizji (w połowie drogi)
-                    const collisionPoint = localPlane.position.clone().lerp(opponentPlane.position, 0.5);
-                    createExplosion(collisionPoint); // <<< EKSPLOZJA
-
-                    // Zadaj obrażenia obu stronom
-                    takeDamage(localPlane, MAX_HEALTH * 2, `Collision with ${opponentId}`); // Zniszcz lokalnego gracza
-                    sendWebSocketMessage({ // Poinformuj serwer o zniszczeniu przeciwnika
-                        type: 'hit_player',
-                        targetId: parseInt(opponentId),
-                        damage: MAX_HEALTH * 2, // Śmiertelne obrażenia
-                        killerId: localPlayerId // Kto spowodował kolizję
-                    });
-
-                    // Odepchnięcie może być skomplikowane, na razie śmierć wystarczy
-                    break; // Wystarczy jedna kolizja na klatkę
-                }
-            }
-        }
+        function checkCollisions(targetPlane){ if(!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible||!gameStarted)return; const pRad=targetPlane.userData.collisionRadius; const obstacles=[...buildings,...carriers]; for(const o of obstacles){ if(!o.parent)continue; const oRad=o.userData.radius; const dSq=targetPlane.position.distanceToSquared(o.position); const minDSq=(pRad+oRad)**2; const hDiff=Math.abs(targetPlane.position.y-o.position.y); const vThresh=o.userData.isCarrier?20:(o.geometry.parameters.height/2+pRad); if(dSq<minDSq&&hDiff<vThresh){ console.log(`Collision: ${targetPlane.userData.id} with ${o.userData.isCarrier?'carrier':'building'}`); const dist=Math.sqrt(dSq); const overlap=(pRad+oRad)-dist; const pushDir=targetPlane.position.clone().sub(o.position).normalize(); targetPlane.position.add(pushDir.multiplyScalar(overlap*1.05)); if(targetPlane===plane&&targetPlane.userData.id===localPlayerId){ const damage=o.userData.isCarrier?MAX_HEALTH:MAX_HEALTH*2; createExplosion(targetPlane.position.clone()); takeDamage(plane,damage,o.userData.isCarrier?'Carrier':'Building');}}}}
+        function checkPlayerCollisions(localPlane){ if(!localPlane||!localPlane.userData.isAlive||!localPlane.visible)return; const localRadius=localPlane.userData.collisionRadius; for(const opponentId in opponentPlanes){ const oppData=opponentPlanes[opponentId]; if(!oppData||!oppData.plane||!oppData.plane.userData.isAlive||!oppData.plane.visible)continue; const opponentPlane=oppData.plane; const opponentRadius=opponentPlane.userData.collisionRadius; const combinedRadius=localRadius+opponentRadius; const distanceSq=localPlane.position.distanceToSquared(opponentPlane.position); if(distanceSq<combinedRadius*combinedRadius){ console.log(`Collision between local player ${localPlayerId} and opponent ${opponentId}!`); const collisionPoint=localPlane.position.clone().lerp(opponentPlane.position,0.5); createExplosion(collisionPoint); takeDamage(localPlane,MAX_HEALTH*2,`Collision with ${opponentId}`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(opponentId),damage:MAX_HEALTH*2,killerId:localPlayerId}); break;}}}
         function removeBuilding(b){ scene.remove(b); const i=buildings.indexOf(b); if(i>-1) buildings.splice(i,1); }
-        // takeDamage - teraz obsługuje śmiertelne obrażenia od kolizji
-        function takeDamage(targetPlane, amount, killerIdOrReason) {
-            if (!targetPlane || !targetPlane.userData.isAlive || !targetPlane.visible) return;
-
-            const previousHealth = targetPlane.userData.health;
-            targetPlane.userData.health = Math.max(0, targetPlane.userData.health - amount);
-            console.log(`Player ${targetPlane.userData.id} took ${amount} dmg from ${killerIdOrReason || 'Unknown'}. HP: ${targetPlane.userData.health}`);
-
-            if (targetPlane.userData.health <= 0 && previousHealth > 0) { // Sprawdź, czy właśnie umarł
-                 console.log(`Player ${targetPlane.userData.id} died.`);
-                if (targetPlane === plane && targetPlane.userData.id === localPlayerId) {
-                     handlePlayerDeath(targetPlane); // Obsłuż śmierć lokalnie
-                     // Poinformuj serwer tylko jeśli zabójcą był inny gracz (nie środowisko)
-                     let killerPlayerId = null;
-                     if (typeof killerIdOrReason === 'number' || (typeof killerIdOrReason === 'string' && !isNaN(parseInt(killerIdOrReason)))) {
-                         killerPlayerId = parseInt(killerIdOrReason);
-                     } else if (typeof killerIdOrReason === 'string' && killerIdOrReason.startsWith('Collision with ')) {
-                          killerPlayerId = parseInt(killerIdOrReason.split(' ')[2]); // Wyciągnij ID z opisu kolizji
-                     }
-
-                     sendWebSocketMessage({ type: 'i_died', killerId: killerPlayerId }); // killerId może być null dla środowiska
-                 } else {
-                     // Dla przeciwników, śmierć jest zarządzana przez serwer (player_update)
-                     // Ale możemy pokazać eksplozję od razu, jeśli została wywołana lokalnie (np. kolizja z nami)
-                     handleOpponentDeathVisuals(targetPlane); // Pokaż efekty wizualne (np. schowanie)
-                     // Eksplozja dla przeciwnika powinna być wywołana w checkPlayerCollisions
-                 }
-             }
-
-             // Aktualizacja paska zdrowia
-            if (targetPlane === plane) { updateHealthBar(plane, localHealthFill); }
-            // Dla przeciwników pasek aktualizuje się w updateOpponentPlanes
-        }
-        function handlePlayerDeath(deadPlane){ if(!deadPlane.userData.isAlive && !deadPlane.visible) return; // Zapobiegaj podwójnemu wywołaniu
-             console.log(`Handling local death effects for ${deadPlane.userData.id}`);
-             deadPlane.userData.isAlive=false; deadPlane.visible=false; localHealthBar.style.display='none'; keys={}; touchPitchInput=0; touchRollInput=0;}
+        function takeDamage(targetPlane, amount, killerIdOrReason){ if (!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible)return; const previousHealth=targetPlane.userData.health; targetPlane.userData.health=Math.max(0,targetPlane.userData.health-amount); console.log(`Player ${targetPlane.userData.id} took ${amount} dmg from ${killerIdOrReason||'Unknown'}. HP: ${targetPlane.userData.health}`); if(targetPlane.userData.health<=0&&previousHealth>0){ console.log(`Player ${targetPlane.userData.id} died.`); if(targetPlane===plane&&targetPlane.userData.id===localPlayerId){ handlePlayerDeath(targetPlane); let killerPlayerId=null; if(typeof killerIdOrReason==='number'||(typeof killerIdOrReason==='string'&&!isNaN(parseInt(killerIdOrReason)))){killerPlayerId=parseInt(killerIdOrReason);}else if(typeof killerIdOrReason==='string'&&killerIdOrReason.startsWith('Collision with ')){killerPlayerId=parseInt(killerIdOrReason.split(' ')[2]);} sendWebSocketMessage({type:'i_died',killerId:killerPlayerId});}else{handleOpponentDeathVisuals(targetPlane);}} if(targetPlane===plane){updateHealthBar(plane,localHealthFill);}}
+        function handlePlayerDeath(deadPlane){ if(!deadPlane.userData.isAlive && !deadPlane.visible) return; console.log(`Handling local death effects for ${deadPlane.userData.id}`); deadPlane.userData.isAlive=false; deadPlane.visible=false; localHealthBar.style.display='none'; keys={}; touchPitchInput=0; touchRollInput=0;}
         function handleOpponentDeathVisuals(deadOpponentPlane){ console.log(`Death visuals for opponent ${deadOpponentPlane.userData.id}`); deadOpponentPlane.visible=false; const oD=opponentPlanes[deadOpponentPlane.userData.id]; if(oD&&oD.healthBar){oD.healthBar.style.display='none';}}
 
         // --- Obsługa Sieciowa (Przeciwnicy) (bez zmian) ---
@@ -407,14 +235,51 @@
         // --- UI i Elementy Pomocnicze (bez zmian) ---
         function createHealthBarElement(){ const b=document.createElement('div'); b.className='healthBar'; const f=document.createElement('div'); b.appendChild(f); b.style.display='none'; return b;}
         function updateHealthBar(t,f){ if(!t||!f||t.userData.health===undefined||t.userData.maxHealth===undefined)return; const p=(t.userData.health/t.userData.maxHealth)*100; f.style.width=`${Math.max(0,p)}%`; if(p>60)f.style.backgroundColor='limegreen'; else if(p>30)f.style.backgroundColor='gold'; else f.style.backgroundColor='red';}
-        function positionHealthBar(t,b){ if(!t||!t.parent||!t.visible||!b||!camera){if(b)b.style.display='none'; return;} const v=new THREE.Vector3(); v.copy(t.position).y+=4; v.project(camera); if(v.z>1||v.z<-1){b.style.display='none'; return;} const x=(v.x*0.5+0.5)*renderer.domElement.clientWidth, y=(-v.y*0.5+0.5)*renderer.domElement.clientHeight; b.style.left=`${x}px`; b.style.top=`${y-10}px`; b.style.display='block';}
+        function positionHealthBar(t,b){ if (!t||!t.parent||!t.visible||!b||!camera){if(b)b.style.display='none'; return;} const v=new THREE.Vector3(); v.copy(t.position).y+=4; v.project(camera); if(v.z>1||v.z<-1){b.style.display='none'; return;} const x=(v.x*0.5+0.5)*renderer.domElement.clientWidth, y=(-v.y*0.5+0.5)*renderer.domElement.clientHeight; b.style.left=`${x}px`; b.style.top=`${y-10}px`; b.style.display='block';}
 
-        // --- Event Listeners (bez zmian) ---
+        // --- Event Listeners --- ZMIENIONE STEROWANIE DOTYKOWE PITCH
         function onWindowResize(){ if(camera&&renderer){camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);} if(popupCamera&&popupRenderer&&planePresentationCanvas){const a=planePresentationCanvas.clientWidth/planePresentationCanvas.clientHeight; popupCamera.aspect=a; popupCamera.updateProjectionMatrix(); popupRenderer.setSize(planePresentationCanvas.clientWidth,planePresentationCanvas.clientHeight);}}
         function onKeyDown(e){ if(!gameStarted)return; keys[e.key.toLowerCase()]=true; if(e.key===' '&&plane&&plane.userData.isAlive&&plane.visible)fireGuns(); if(e.key==='Tab'){e.preventDefault(); showRanking=true; updateRankingWebSocket(); rankingDiv.style.display='block';}}
         function onKeyUp(e){ if(!gameStarted)return; keys[e.key.toLowerCase()]=false; if(e.key==='Tab'){showRanking=false; rankingDiv.style.display='none';}}
-        function onTouchStart(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0){const t=e.touches[0]; touchStartX=t.clientX; touchStartY=t.clientY; const sH=window.innerHeight; if(touchStartY<sH*0.4){touchPitchInput=-1;}else if(touchStartY>sH*0.6){touchPitchInput=1;}else{touchPitchInput=0;} touchRollInput=0;}}
-        function onTouchMove(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0&&touchStartX!==null&&touchStartY!==null){const t=e.touches[0]; const cX=t.clientX; const cY=t.clientY; const dX=cX-touchStartX; touchRollInput=Math.max(-1,Math.min(1,dX/(window.innerWidth*0.2))); const sH=window.innerHeight; if(cY<sH*0.4){touchPitchInput=-1;}else if(cY>sH*0.6){touchPitchInput=1;}else{touchPitchInput=0;}}}
+        function onTouchStart(e){
+            if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return;
+            e.preventDefault();
+            if(e.touches.length>0){
+                const t=e.touches[0];
+                touchStartX=t.clientX;
+                touchStartY=t.clientY;
+                const sH=window.innerHeight;
+                // ZMIENIONE PRZYPISANIE touchPitchInput
+                if(touchStartY < sH * 0.4){ // Górna część -> nurkowanie
+                    touchPitchInput = 1;
+                } else if(touchStartY > sH * 0.6){ // Dolna część -> wznoszenie
+                    touchPitchInput = -1;
+                } else {
+                    touchPitchInput = 0; // Środek -> neutralnie
+                }
+                touchRollInput = 0;
+            }
+        }
+        function onTouchMove(e){
+            if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return;
+            e.preventDefault();
+            if(e.touches.length>0&&touchStartX!==null&&touchStartY!==null){
+                const t=e.touches[0];
+                const cX=t.clientX;
+                const cY=t.clientY;
+                const dX=cX-touchStartX;
+                touchRollInput=Math.max(-1,Math.min(1,dX/(window.innerWidth*0.2)));
+                const sH=window.innerHeight;
+                 // ZMIENIONE PRZYPISANIE touchPitchInput
+                 if(cY < sH * 0.4){ // Górna część -> nurkowanie
+                     touchPitchInput = 1;
+                 } else if(cY > sH * 0.6){ // Dolna część -> wznoszenie
+                     touchPitchInput = -1;
+                 } else {
+                     touchPitchInput = 0; // Środek -> neutralnie
+                 }
+            }
+        }
         function onTouchEnd(e){ if(!gameStarted)return; touchPitchInput=0; touchRollInput=0; touchStartX=null; touchStartY=null;}
 
     </script>
