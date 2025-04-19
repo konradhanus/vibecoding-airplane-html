@@ -335,7 +335,344 @@
         // Skopiuj z poprzedniej wersji
         function createTiles() { const waterColor = 0x003366; const landColor = 0x228B22; for (let dx = -2; dx <= 2; dx++) { for (let dz = -2; dz <= 2; dz++) { const isCenter = (dx === 0 && dz === 0); const tileColor = isCenter ? landColor : waterColor; const tileMaterial = new THREE.MeshStandardMaterial({ color: tileColor, roughness: isCenter ? 0.8 : 0.6, metalness: 0.1 }); const tile = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE), tileMaterial); tile.rotation.x = -Math.PI / 2; tile.userData.gridX = dx; tile.userData.gridZ = dz; tile.userData.isCenter = isCenter; scene.add(tile); tiles.push(tile); } } }
         function createBuildings() { const m = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, metalness: 0.3 }); for (let i = 0; i < 150; i++) { const w = Math.random() * 15 + 10, d = Math.random() * 15 + 10, h = Math.random() * 120 + 50, g = new THREE.BoxGeometry(w, h, d), b = new THREE.Mesh(g, m); b.position.set((Math.random() - 0.5) * (TILE_SIZE * 0.9), h / 2, (Math.random() - 0.5) * (TILE_SIZE * 0.9)); b.userData.radius = Math.max(w, d) / 2 * 1.1; b.userData.health = 3; buildings.push(b); scene.add(b); } }
+        
         function createAirplane(c) { const a = new THREE.Group(), fG = new THREE.BoxGeometry(2, 1, 4), fM = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }), f = new THREE.Mesh(fG, fM); a.add(f); const wG = new THREE.BoxGeometry(8, 0.2, 1.5), wM = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.7 }), l = new THREE.Mesh(wG, wM); l.position.set(-5, 0, 0); a.add(l); const r = new THREE.Mesh(wG, wM); r.position.set(5, 0, 0); a.add(r); const gM = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }), gG = new THREE.CylinderGeometry(0.2, 0.2, 3, 16), gL = new THREE.Mesh(gG, gM); gL.rotation.x = Math.PI / 2; gL.position.set(-5, -0.3, 1.5); a.add(gL); const gR = new THREE.Mesh(gG, gM); gR.rotation.x = Math.PI / 2; gR.position.set(5, -0.3, 1.5); a.add(gR); a.userData.gunPositions = [gL.position.clone(), gR.position.clone()]; const p = new THREE.Group(); p.position.z = 3; const bM = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4 }), bG = new THREE.BoxGeometry(0.5, 3, 0.3), b1 = new THREE.Mesh(bG, bM); b1.position.y = 1.5; p.add(b1); const b2 = b1.clone(); b2.position.y = -1.5; p.add(b2); a.add(p); a.userData.propeller = p; return a; }
+        
+        function createSPAD(c) { // Argument 'c' jest teraz ignorowany na rzecz kolorów z obrazka
+            const a = new THREE.Group();
+
+            // --- Definicje Materiałów (kolory inspirowane zdjęciem) ---
+            const wingColor = 0x6B8E23; // OliveDrab (zieleń kamuflażu)
+            const fuselageColor = 0xBDB76B; // DarkKhaki (piaskowy/khaki kamuflażu / spód)
+            const cowlingColor = 0xA0522D; // Sienna (czerwonawa osłona silnika)
+            const propellerColor = 0x8B4513; // SaddleBrown (drewniane śmigło)
+            const interplaneStrutColor = 0x8B4513; // SaddleBrown (drewniane wsporniki międzyskrzydłowe)
+            const landingGearStrutColor = 0xBDB76B; // DarkKhaki (wsporniki podwozia, oś, płoza)
+            const gunColor = 0x222222; // Bardzo ciemny szary/czarny (karabiny)
+            const wheelColor = 0x111111; // Czarny (opony)
+            // const engineColor = 0x555555; // Opcjonalnie dla widocznych części silnika
+
+            const wingMaterial = new THREE.MeshStandardMaterial({ color: wingColor, roughness: 0.8, metalness: 0.1 });
+            const fuselageMaterial = new THREE.MeshStandardMaterial({ color: fuselageColor, roughness: 0.8, metalness: 0.1 });
+            const cowlingMaterial = new THREE.MeshStandardMaterial({ color: cowlingColor, roughness: 0.6, metalness: 0.2 });
+            const propellerMaterial = new THREE.MeshStandardMaterial({ color: propellerColor, roughness: 0.8 });
+            const interplaneStrutMaterial = new THREE.MeshStandardMaterial({ color: interplaneStrutColor, roughness: 0.85 });
+            const landingGearStrutMaterial = new THREE.MeshStandardMaterial({ color: landingGearStrutColor, roughness: 0.8 });
+            const gunMaterial = new THREE.MeshStandardMaterial({ color: gunColor, roughness: 0.5, metalness: 0.4 });
+            const wheelMaterial = new THREE.MeshStandardMaterial({ color: wheelColor, roughness: 0.8 });
+
+
+            // --- Kadłub (Fuselage) ---
+            const fuselageLength = 5.0;
+            const fuselageWidth = 1.2;
+            const fuselageHeight = 1.4;
+            const fuselageGeo = new THREE.BoxGeometry(fuselageWidth, fuselageHeight, fuselageLength);
+            const fuselage = new THREE.Mesh(fuselageGeo, fuselageMaterial); // Kolor khaki
+            fuselage.position.z = -fuselageLength / 2 + 0.5;
+            a.add(fuselage);
+
+            // --- Silnik / Osłona (Engine / Cowling) ---
+            const cowlingRadius = 0.7;
+            const cowlingLength = 0.8;
+            const cowlingGeo = new THREE.CylinderGeometry(cowlingRadius, cowlingRadius*0.9, cowlingLength, 16);
+            const cowling = new THREE.Mesh(cowlingGeo, cowlingMaterial); // Kolor sienna
+            cowling.rotation.x = Math.PI / 2;
+            cowling.position.set(0, 0, fuselage.position.z + fuselageLength / 2 + cowlingLength / 2 - 0.1);
+            a.add(cowling);
+
+            // --- Śmigło (Propeller) ---
+            const propeller = new THREE.Group();
+            propeller.position.z = cowling.position.z + cowlingLength / 2 + 0.1;
+            const bladeLength = 3.0;
+            const bladeWidth = 0.3;
+            const bladeThickness = 0.08;
+            const bladeGeo = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeThickness);
+            const blade1 = new THREE.Mesh(bladeGeo, propellerMaterial); // Kolor brązowy
+            propeller.add(blade1);
+            const blade2 = new THREE.Mesh(bladeGeo, propellerMaterial); // Kolor brązowy
+            blade2.rotation.z = Math.PI / 2;
+            propeller.add(blade2);
+            a.add(propeller);
+            a.userData.propeller = propeller;
+
+            // --- Skrzydła (Wings - Biplane) ---
+            const wingSpan = 8.5;
+            const wingChord = 1.6;
+            const wingThickness = 0.18;
+            const wingGeo = new THREE.BoxGeometry(wingSpan, wingThickness, wingChord);
+
+            const topWing = new THREE.Mesh(wingGeo, wingMaterial); // Kolor zielony
+            topWing.position.set(0, fuselageHeight / 2 + 0.5, fuselage.position.z + 0.2);
+            a.add(topWing);
+
+            const botWing = new THREE.Mesh(wingGeo, wingMaterial); // Kolor zielony
+            botWing.position.set(0, -fuselageHeight / 2 + wingThickness / 2, fuselage.position.z - 0.1);
+            a.add(botWing);
+
+            // --- Wsporniki Międzyskrzydłowe (Wing Struts) ---
+            const strutRadius = 0.05;
+            const strutHeight = topWing.position.y - botWing.position.y - wingThickness;
+
+            function createVerticalStrut(x, z) {
+                const strutGeo = new THREE.CylinderGeometry(strutRadius, strutRadius, strutHeight, 6);
+                // Używamy materiału dla wsporników międzyskrzydłowych
+                const strut = new THREE.Mesh(strutGeo, interplaneStrutMaterial); // Kolor brązowy
+                strut.position.set(x, botWing.position.y + wingThickness / 2 + strutHeight / 2, z);
+                return strut;
+            }
+
+            const strutXOffset = wingSpan * 0.35;
+            const strutZOffset = wingChord * 0.2;
+            a.add(createVerticalStrut(strutXOffset, botWing.position.z + strutZOffset));
+            a.add(createVerticalStrut(strutXOffset, botWing.position.z - strutZOffset));
+            a.add(createVerticalStrut(-strutXOffset, botWing.position.z + strutZOffset));
+            a.add(createVerticalStrut(-strutXOffset, botWing.position.z - strutZOffset));
+
+            // --- Ogon (Tail Section) ---
+            const tailplaneSpan = 3.5;
+            const tailplaneChord = 1.0;
+            const tailplaneThickness = 0.12;
+            const tailplaneGeo = new THREE.BoxGeometry(tailplaneSpan, tailplaneThickness, tailplaneChord);
+            // Statecznik poziomy w kolorze skrzydeł
+            const tailplane = new THREE.Mesh(tailplaneGeo, wingMaterial); // Kolor zielony
+            tailplane.position.set(0, 0, fuselage.position.z - fuselageLength / 2 - tailplaneChord / 2 + 0.2);
+            a.add(tailplane);
+
+            const finHeight = 1.1;
+            const finChord = 0.9;
+            const finThickness = 0.1;
+            const finGeo = new THREE.BoxGeometry(finThickness, finHeight, finChord);
+            // Statecznik pionowy w kolorze kadłuba (uproszczenie)
+            const fin = new THREE.Mesh(finGeo, fuselageMaterial); // Kolor khaki
+            fin.position.set(0, tailplane.position.y + tailplaneThickness/2 + finHeight/2, tailplane.position.z);
+            a.add(fin);
+
+            // --- Podwozie (Landing Gear) ---
+            const wheelRadius = 0.4;
+            const wheelThickness = 0.1;
+            const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelThickness, 16);
+            wheelGeo.rotateZ(Math.PI / 2);
+
+            const landingStrutLength = 1.8; // Długość jest obliczana, ale promień jest potrzebny
+            const landingStrutRadius = 0.06;
+
+            const wheelY = -fuselageHeight / 2 - 0.7;
+            const wheelX = fuselageWidth / 2 + 0.4;
+            const wheelZ = botWing.position.z + 0.1;
+
+            const wheelL = new THREE.Mesh(wheelGeo, wheelMaterial); // Koła czarne
+            wheelL.position.set(-wheelX, wheelY, wheelZ);
+            a.add(wheelL);
+
+            const wheelR = new THREE.Mesh(wheelGeo, wheelMaterial); // Koła czarne
+            wheelR.position.set(wheelX, wheelY, wheelZ);
+            a.add(wheelR);
+
+            function createLandingStrut(attachPointFuselage, attachPointWheel) {
+                 const direction = new THREE.Vector3().subVectors(attachPointWheel, attachPointFuselage);
+                const length = direction.length();
+                const geo = new THREE.CylinderGeometry(landingStrutRadius, landingStrutRadius, length, 6);
+                geo.translate(0, length / 2, 0);
+                // Używamy materiału dla wsporników podwozia
+                const strut = new THREE.Mesh(geo, landingGearStrutMaterial); // Kolor khaki
+                strut.position.copy(attachPointFuselage);
+                strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+                return strut;
+            }
+
+            const fuselageAttachY = -fuselageHeight / 2;
+            const fuselageAttachX = fuselageWidth / 2;
+            const fuselageAttachZFront = wheelZ + 0.2;
+            const fuselageAttachZRear = wheelZ - 0.2;
+
+            a.add(createLandingStrut(new THREE.Vector3(-fuselageAttachX, fuselageAttachY, fuselageAttachZFront), wheelL.position));
+            a.add(createLandingStrut(new THREE.Vector3(-fuselageAttachX, fuselageAttachY, fuselageAttachZRear), wheelL.position));
+            a.add(createLandingStrut(new THREE.Vector3(fuselageAttachX, fuselageAttachY, fuselageAttachZFront), wheelR.position));
+            a.add(createLandingStrut(new THREE.Vector3(fuselageAttachX, fuselageAttachY, fuselageAttachZRear), wheelR.position));
+
+            const axleLength = wheelX * 2;
+            const axleGeo = new THREE.CylinderGeometry(landingStrutRadius * 0.8, landingStrutRadius * 0.8, axleLength, 6);
+            axleGeo.rotateZ(Math.PI / 2);
+            const axle = new THREE.Mesh(axleGeo, landingGearStrutMaterial); // Oś khaki
+            axle.position.set(0, wheelY, wheelZ);
+            a.add(axle);
+
+            const skidLength = 0.6;
+            const skidGeo = new THREE.CylinderGeometry(landingStrutRadius, landingStrutRadius*0.5, skidLength, 6);
+            const skid = new THREE.Mesh(skidGeo, landingGearStrutMaterial); // Płoza khaki
+            skid.position.set(0, -fuselageHeight * 0.6, fuselage.position.z - fuselageLength / 2 - 0.1);
+            skid.rotation.z = -1.0;
+            a.add(skid);
+
+            // --- Karabiny (Guns) ---
+            const gunLength = 1.2;
+            const gunRadius = 0.06;
+            const gunGeo = new THREE.CylinderGeometry(gunRadius, gunRadius, gunLength, 8);
+            const gunOffsetZ = fuselage.position.z + fuselageLength*0.15;
+            const gunOffsetY = fuselageHeight / 2 + 0.05;
+            const gunOffsetX = fuselageWidth * 0.2;
+
+            const gunL = new THREE.Mesh(gunGeo, gunMaterial); // Ciemnoszare/czarne
+            gunL.rotation.x = Math.PI / 2;
+            gunL.position.set(-gunOffsetX, gunOffsetY, gunOffsetZ);
+            a.add(gunL);
+
+            const gunR = new THREE.Mesh(gunGeo, gunMaterial); // Ciemnoszare/czarne
+            gunR.rotation.x = Math.PI / 2;
+            gunR.position.set(gunOffsetX, gunOffsetY, gunOffsetZ);
+            a.add(gunR);
+
+            a.userData.gunPositions = [
+                gunL.position.clone().add(new THREE.Vector3(0, 0, gunLength / 2)),
+                gunR.position.clone().add(new THREE.Vector3(0, 0, gunLength / 2))
+            ];
+
+            a.rotation.x = 0.02;
+
+            return a;
+        }
+
+        function createRedBaron(c) {
+            const a = new THREE.Group();
+            const bodyColor = c;
+            const detailColor = 0xaaaaaa;
+            const darkDetailColor = 0x333333;
+            const propellerColor = 0x222222;
+
+            const bodyMaterial = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6, metalness: 0.2 });
+            const detailMaterial = new THREE.MeshStandardMaterial({ color: detailColor, roughness: 0.7 });
+            const darkDetailMaterial = new THREE.MeshStandardMaterial({ color: darkDetailColor, roughness: 0.5 });
+            const propellerMaterial = new THREE.MeshStandardMaterial({ color: propellerColor, roughness: 0.4 });
+
+            // --- Kadłub --- (bez zmian)
+            const fuselageGeo = new THREE.BoxGeometry(1.5, 1, 5);
+            const fuselage = new THREE.Mesh(fuselageGeo, bodyMaterial);
+            fuselage.position.z = -0.5;
+            a.add(fuselage);
+
+            // --- Skrzydła (Trójpłatowiec - grubsze i bardziej rozsunięte) ---
+            const wingWidth = 7;
+            const wingDepth = 1.2;
+            // Zwiększona grubość skrzydeł
+            const wingThickness = 0.25; // <<< ZMIANA (było 0.15)
+            const wingGeo = new THREE.BoxGeometry(wingWidth, wingThickness, wingDepth);
+
+            // Zwiększony odstęp pionowy między skrzydłami
+            const wingVerticalSeparation = 1.1; // <<< ZMIANA (efektywny odstęp będzie większy)
+
+            // Górne skrzydło
+            const topWingL = new THREE.Mesh(wingGeo, bodyMaterial);
+            // Wyżej niż poprzednio
+            topWingL.position.set(-(wingWidth / 2 + 0.2), wingVerticalSeparation, -0.5); // <<< ZMIANA Y
+            a.add(topWingL);
+            const topWingR = new THREE.Mesh(wingGeo, bodyMaterial);
+            topWingR.position.set(wingWidth / 2 + 0.2, wingVerticalSeparation, -0.5); // <<< ZMIANA Y
+            a.add(topWingR);
+
+            // Środkowe skrzydło (na wysokości kadłuba)
+            const midWingGeo = new THREE.BoxGeometry(wingWidth * 0.95, wingThickness, wingDepth);
+            const midWingL = new THREE.Mesh(midWingGeo, bodyMaterial);
+            // Pozycja Y = 0 pozostaje bez zmian
+            midWingL.position.set(-(wingWidth * 0.95 / 2 + 0.2), 0, -0.3);
+            a.add(midWingL);
+            const midWingR = new THREE.Mesh(midWingGeo, bodyMaterial);
+            midWingR.position.set(wingWidth * 0.95 / 2 + 0.2, 0, -0.3);
+            a.add(midWingR);
+
+            // Dolne skrzydło
+            const botWingGeo = new THREE.BoxGeometry(wingWidth * 0.9, wingThickness, wingDepth * 0.9);
+            const botWingL = new THREE.Mesh(botWingGeo, bodyMaterial);
+            // Niżej niż poprzednio
+            botWingL.position.set(-(wingWidth * 0.9 / 2 + 0.2), -wingVerticalSeparation, -0.1); // <<< ZMIANA Y
+            a.add(botWingL);
+            const botWingR = new THREE.Mesh(botWingGeo, bodyMaterial);
+            botWingR.position.set(wingWidth * 0.9 / 2 + 0.2, -wingVerticalSeparation, -0.1); // <<< ZMIANA Y
+            a.add(botWingR);
+
+            // --- Ogon --- (bez zmian)
+            const tailPlaneGeo = new THREE.BoxGeometry(3.5, 0.15, 1);
+            const tailPlane = new THREE.Mesh(tailPlaneGeo, bodyMaterial);
+            tailPlane.position.set(0, 0.2, -3);
+            a.add(tailPlane);
+            const rudderGeo = new THREE.BoxGeometry(0.15, 1.2, 1);
+            const rudder = new THREE.Mesh(rudderGeo, bodyMaterial);
+            rudder.position.set(0, 0.75, -3.2);
+            a.add(rudder);
+
+            // --- Śmigło --- (bez zmian)
+            const propeller = new THREE.Group();
+            propeller.position.z = 2.3;
+            const bladeGeo = new THREE.BoxGeometry(0.3, 2.5, 0.1);
+            const blade1 = new THREE.Mesh(bladeGeo, propellerMaterial);
+            blade1.rotation.z = Math.PI / 4;
+            propeller.add(blade1);
+            const blade2 = blade1.clone();
+            blade2.rotation.z = -Math.PI / 4;
+            propeller.add(blade2);
+            const spinnerGeo = new THREE.SphereGeometry(0.3, 8, 6);
+            const spinner = new THREE.Mesh(spinnerGeo, detailMaterial);
+            propeller.add(spinner);
+            a.add(propeller);
+            a.userData.propeller = propeller;
+
+            // --- Karabiny --- (bez zmian)
+            const gunGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.5, 8);
+            const gunL = new THREE.Mesh(gunGeo, darkDetailMaterial);
+            gunL.rotation.x = Math.PI / 2;
+            gunL.position.set(-0.3, 0.6, 1.0);
+            a.add(gunL);
+            const gunR = new THREE.Mesh(gunGeo, darkDetailMaterial);
+            gunR.rotation.x = Math.PI / 2;
+            gunR.position.set(0.3, 0.6, 1.0);
+            a.add(gunR);
+            a.userData.gunPositions = [
+                new THREE.Vector3(-0.3, 0.6, 1.0 + 1.5 / 2),
+                new THREE.Vector3(0.3, 0.6, 1.0 + 1.5 / 2)
+            ];
+
+            // --- Podwozie (dostosowane do niższych skrzydeł) ---
+            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.2, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+            // Dłuższe golenie podwozia
+            const strutHeight = 1.5; // <<< ZMIANA (było 1.2)
+            const strutGeo = new THREE.BoxGeometry(0.1, strutHeight, 0.1);
+
+            // Koło i goleń lewa - obniżone
+            const wheelL = new THREE.Mesh(wheelGeo, wheelMat);
+            wheelL.rotation.z = Math.PI / 2;
+            // Obniżamy koło, aby znalazło się pod dolnym skrzydłem
+            wheelL.position.set(-0.7, -wingVerticalSeparation - strutHeight / 2 + wingThickness, 0.5); // <<< ZMIANA Y
+            a.add(wheelL);
+            const strutL = new THREE.Mesh(strutGeo, detailMaterial);
+            // Obniżamy górny punkt goleni do poziomu dolnego skrzydła
+            strutL.position.set(-0.65, -wingVerticalSeparation - wingThickness/2, 0.5); // <<< ZMIANA Y
+            strutL.rotation.z = 0.2;
+            a.add(strutL);
+
+            // Koło i goleń prawa - obniżone
+            const wheelR = new THREE.Mesh(wheelGeo, wheelMat);
+            wheelR.rotation.z = Math.PI / 2;
+            // Obniżamy koło
+            wheelR.position.set(0.7, -wingVerticalSeparation - strutHeight / 2 + wingThickness, 0.5); // <<< ZMIANA Y
+            a.add(wheelR);
+            const strutR = new THREE.Mesh(strutGeo, detailMaterial);
+            // Obniżamy górny punkt goleni
+            strutR.position.set(0.65, -wingVerticalSeparation - wingThickness/2, 0.5); // <<< ZMIANA Y
+            strutR.rotation.z = -0.2;
+            a.add(strutR);
+
+            // Płoza ogonowa (lekko obniżona)
+            const skidGeo = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+            const skid = new THREE.Mesh(skidGeo, detailMaterial);
+            // Nieco niżej, aby pasowało do niższych kół
+            skid.position.set(0, -wingVerticalSeparation*0.8 - strutHeight/2, -2.8); // <<< ZMIANA Y
+            skid.rotation.z = -0.8;
+            a.add(skid);
+
+
+            return a;
+        }
+        
         function createCarriers() { const carrierGeo = new THREE.BoxGeometry(80, 20, 500); const carrierMat = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 0.8 }); const carrierPositions = [{ x: 0, z: -CARRIER_DISTANCE, rotY: 0 }, { x: CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }, { x: 0, z: CARRIER_DISTANCE, rotY: 0 }, { x: -CARRIER_DISTANCE, z: 0, rotY: Math.PI / 2 }]; carrierPositions.forEach(pos => { const carrier = new THREE.Mesh(carrierGeo, carrierMat); carrier.position.set(pos.x, 10, pos.z); carrier.rotation.y = pos.rotY; carrier.userData.radius = 250; carrier.userData.isCarrier = true; carrier.userData.health = Infinity; carriers.push(carrier); scene.add(carrier); }); }
         function updateOpponentPlanes(deltaTime) { for (const id in opponentPlanes) { const oppData = opponentPlanes[id]; const opp = oppData.plane; const healthBar = oppData.healthBar; if (opp.userData.isAlive) { if (oppData.targetPos) { opp.position.lerp(oppData.targetPos, INTERPOLATION_FACTOR * deltaTime); } if (oppData.targetQuat) { opp.quaternion.slerp(oppData.targetQuat, INTERPOLATION_FACTOR * deltaTime); } if (opp.userData.propeller) { opp.userData.propeller.rotation.z += BASE_PROPELLER_SPEED_MULTIPLIER * 0.15 * deltaTime; } if (healthBar) { positionHealthBar(opp, healthBar); } } } }
         function updateTiles() { if (!plane || !plane.parent) return; const playerTileX = Math.round(plane.position.x / TILE_SIZE); const playerTileZ = Math.round(plane.position.z / TILE_SIZE); tiles.forEach(tile => { const tileWorldX = (playerTileX + tile.userData.gridX) * TILE_SIZE; const tileWorldZ = (playerTileZ + tile.userData.gridZ) * TILE_SIZE; tile.position.set(tileWorldX, 0, tileWorldZ); }); }
