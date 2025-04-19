@@ -49,26 +49,10 @@
         /* Komunikat o Śmierci */
         #deathMessage { position: fixed; top: 40%; left: 50%; transform: translateX(-50%); background-color: rgba(180, 0, 0, 0.85); color: white; padding: 15px 30px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.7); font-size: 28px; font-weight: bold; text-align: center; z-index: 50; display: none; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); }
 
-        /* NOWE STYLE: Informacje HUD (Wysokość, Prędkość) */
-        #hudInfo {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px 12px;
-            border-radius: 5px;
-            z-index: 10;
-            font-size: 18px;
-            text-align: right;
-            display: none; /* Ukryty na początku */
-        }
-        #hudInfo span {
-            display: block; /* Każdy w nowej linii */
-            margin-bottom: 4px;
-        }
-         #hudInfo span:last-child {
-             margin-bottom: 0;
-         }
+        /* HUD Info (Wysokość, Prędkość) */
+        #hudInfo { position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.5); padding: 8px 12px; border-radius: 5px; z-index: 10; font-size: 18px; text-align: right; display: none; }
+        #hudInfo span { display: block; margin-bottom: 4px; }
+        #hudInfo span:last-child { margin-bottom: 0; }
 
     </style>
 </head>
@@ -77,11 +61,7 @@
     <!-- UI -->
     <div id="planeSelectionPopup"> <div id="popupContent"> <h2>Wybierz swój samolot</h2> <div id="planePresentationContainer"> <canvas id="planePresentationCanvas"></canvas> </div> <div id="planeOptions"> <div class="planeOption" data-type="spad"> <h3>SPAD S.XIII</h3> <p>Klasyczny myśliwiec z I WŚ.</p> </div> <div class="planeOption" data-type="redbaron"> <h3>Fokker Dr.I</h3> <p>Legendarny trójpłatowiec.</p> </div> <div class="planeOption" data-type="airplane"> <h3>Generic Jet</h3> <p>Podstawowy odrzutowiec.</p> </div> </div> </div> </div>
     <div id="score">Wybierz samolot...</div>
-    <!-- NOWY ELEMENT: HUD Info -->
-    <div id="hudInfo">
-        <span id="altitudeDisplay">Wys: 0 m n.p.m.</span>
-        <span id="speedDisplay">Prędkość: 0 km/h</span>
-    </div>
+    <div id="hudInfo"> <span id="altitudeDisplay">Wys: 0 m n.p.m.</span> <span id="speedDisplay">Prędkość: 0 km/h</span> </div>
     <div id="minimapContainer"><canvas id="minimapCanvas"></canvas></div>
     <button id="fireButton">FIRE</button>
     <div id="localPlayerHealthBar" class="healthBar"> <div id="localPlayerHealthFill"></div> </div>
@@ -98,18 +78,17 @@
         const STATE_SEND_INTERVAL = 50; const INTERPOLATION_FACTOR = 15;
         const MAX_HEALTH = 100; const TILE_SIZE = 1000; const CARRIER_DISTANCE = 1500;
         const PITCH_SPEED = 1.5; const ROLL_SPEED = 2.5; const YAW_SPEED = 1.0;
-        const FORWARD_SPEED = 80.0; // Bazowa prędkość w jednostkach/sekundę
-        const BASE_PROPELLER_SPEED_MULTIPLIER = 90;
+        const FORWARD_SPEED = 80.0; const BASE_PROPELLER_SPEED_MULTIPLIER = 90;
         const GROUND_EFFECT_ALTITUDE = 5; const CAMERA_DISTANCE = 20; const CAMERA_HEIGHT = 5;
         const MIN_GROUND_ALTITUDE = 2;
         const BULLET_DAMAGE = 15; const BULLET_SPEED = 700; const BULLET_LIFETIME = 4.0;
         const ROCKET_SPEED = 350; const ROCKET_LIFETIME = 6.0; const ROCKET_DAMAGE = 75;
         const ROCKET_COOLDOWN = 1500; const ROCKET_TRAIL_FADE_TIME = 1.0;
         const CROSSHAIR_DISTANCE = 800;
-        // --- NOWE Stałe dla Boost ---
-        const BOOST_MULTIPLIER = 1.8; // Mnożnik prędkości podczas boostu
-        const BOOST_DURATION = 2000; // Czas trwania boostu w ms (2 sekundy)
-        const BOOST_COOLDOWN = 10000; // Czas odnowienia boostu w ms (10 sekund)
+        const BOOST_MULTIPLIER = 1.8; const BOOST_DURATION = 2000; const BOOST_COOLDOWN = 10000;
+        const CLOUD_COUNT = 50; const CLOUD_SIZE_MIN = 80; const CLOUD_SIZE_MAX = 150;
+        const CLOUD_THICKNESS = 20; const CLOUD_ALTITUDE_MIN = 150; const CLOUD_ALTITUDE_MAX = 350;
+        const CLOUD_OPACITY = 0.7;
 
         // --- Zmienne Globalne ---
         let localPlayerId = null; let opponentPlanes = {}; let showRanking = false;
@@ -117,6 +96,7 @@
         const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
         let scene, camera, renderer; let plane; let keys = {};
         let bullets = []; let rockets = []; let buildings = []; let carriers = []; let tiles = [];
+        let clouds = [];
         let score = 0; const scoreDiv = document.getElementById('score');
         let touchPitchInput = 0; let touchRollInput = 0; let touchStartX = null, touchStartY = null;
         let currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER;
@@ -124,10 +104,8 @@
         let minimapCanvas, minimapCtx; const MINIMAP_SIZE = 150, MAP_SCALE = 0.015;
         const clock = new THREE.Clock(); let socket = null; let isConnected = false;
         let lastSentState = {}; let gameStarted = false; let lastRocketFireTime = 0;
-        // --- NOWE Zmienne dla Boost ---
-        let isBoosting = false;
-        let boostEndTime = 0;
-        let boostCooldownEndTime = 0;
+        let isBoosting = false; let boostEndTime = 0; let boostCooldownEndTime = 0;
+        let sunMesh = null; let sunLight = null;
 
         // Popup Wyboru Samolotu
         let popupScene, popupCamera, popupRenderer; let spadPreview, baronPreview, airplanePreview;
@@ -147,11 +125,7 @@
         // UI
         let crosshairElement=null; let horizonContainerElement=null; let horizonIndicatorElement=null;
         const crosshairTarget=new THREE.Vector3(); const screenPosition=new THREE.Vector2();
-        let deathMessageElement=null;
-        // --- NOWE: Referencje do elementów HUD ---
-        let hudInfoElement = null;
-        let altitudeElement = null;
-        let speedElement = null;
+        let deathMessageElement=null; let hudInfoElement=null; let altitudeElement=null; let speedElement=null;
 
         // --- Inicjalizacja Popupu ---
         showPlaneSelectionPopup();
@@ -165,53 +139,44 @@
         // --- Start Gry ---
         function startGame(){ if(gameStarted)return; gameStarted=true; scoreDiv.innerText="Łączenie..."; initMainGame(); connectWebSocket(); animate(); }
 
-        // --- Inicjalizacja Głównej Gry --- ZAKTUALIZOWANA
+        // --- Inicjalizacja Głównej Gry ---
         function initMainGame(){
             if(hasTouch)document.getElementById('fireButton').style.display='block'; else document.getElementById('fireButton').style.display='none';
             minimapCanvas=document.getElementById('minimapCanvas'); minimapCtx=minimapCanvas.getContext('2d'); minimapCanvas.width=MINIMAP_SIZE; minimapCanvas.height=MINIMAP_SIZE;
             scene=new THREE.Scene(); scene.background=new THREE.Color(0x87ceeb);
-            camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,10000);
+            camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,20000);
             renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(window.innerWidth,window.innerHeight); document.body.appendChild(renderer.domElement);
-            scene.add(new THREE.AmbientLight(0xffffff,0.7)); const d=new THREE.DirectionalLight(0xffffff,0.8); d.position.set(100,200,-50); scene.add(d);
-            createTiles(); createBuildings(); createCarriers();
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            createSun(); createTiles(); createBuildings(); createCarriers(); createClouds();
             const creatorFunction = planeCreators[selectedPlaneType] || planeCreators.airplane;
             plane = creatorFunction(0xffffff);
             if (!plane.userData.gunPositions) { console.warn(`Samolot ${selectedPlaneType} nie ma gunPositions`); plane.userData.gunPositions = [new THREE.Vector3(0.8,-0.2,2.5), new THREE.Vector3(-0.8,-0.2,2.5)]; }
             if (!plane.userData.rocketPositions) { console.warn(`Samolot ${selectedPlaneType} nie ma rocketPositions`); plane.userData.rocketPositions = [{side:'left',position:new THREE.Vector3(-2.5,-0.5,1.5)}, {side:'right',position:new THREE.Vector3(2.5,-0.5,1.5)}]; }
             plane.visible=false; plane.rotation.order='YXZ'; scene.add(plane);
             localHealthBar.style.display='none';
-            crosshairElement = document.getElementById('crosshair');
-            horizonContainerElement = document.getElementById('horizonContainer');
-            horizonIndicatorElement = document.getElementById('horizonIndicator');
-            deathMessageElement = document.getElementById('deathMessage');
-            // --- NOWE: Pobranie referencji do HUD ---
-            hudInfoElement = document.getElementById('hudInfo');
-            altitudeElement = document.getElementById('altitudeDisplay');
-            speedElement = document.getElementById('speedDisplay');
-
+            crosshairElement = document.getElementById('crosshair'); horizonContainerElement = document.getElementById('horizonContainer'); horizonIndicatorElement = document.getElementById('horizonIndicator');
+            deathMessageElement = document.getElementById('deathMessage'); hudInfoElement = document.getElementById('hudInfo'); altitudeElement = document.getElementById('altitudeDisplay'); speedElement = document.getElementById('speedDisplay');
             window.addEventListener('resize',onWindowResize); window.addEventListener('keydown',onKeyDown); window.addEventListener('keyup',onKeyUp);
             window.addEventListener('touchstart',onTouchStart,{passive:false}); window.addEventListener('touchmove',onTouchMove,{passive:false}); window.addEventListener('touchend',onTouchEnd);
             const fb=document.getElementById('fireButton'); fb.addEventListener('touchstart',e=>{e.preventDefault();if(plane&&plane.userData.isAlive)fireGuns();});
         }
 
-        // --- WebSocket --- ZAKTUALIZOWANY (onclose)
-        function connectWebSocket(){ console.log("Łączenie z WS..."); socket=new WebSocket(WEBSOCKET_URL); socket.onopen=()=>{console.log("WS Połączony!"); isConnected=true; scoreDiv.innerText="Połączono!"; if(localPlayerId){sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType});} setInterval(sendStateUpdateIfNeeded,STATE_SEND_INTERVAL);}; socket.onmessage=(e)=>{try{handleServerMessage(JSON.parse(e.data));}catch(err){console.error("Błąd parsowania:",err,e.data);}}; socket.onclose=(e)=>{console.log("WS Rozłączony.",e.reason); isConnected=false; gameStarted=false; localPlayerId=null; scoreDiv.innerText="Rozłączono. Odśwież."; Object.keys(opponentPlanes).forEach(removeOpponent); if(plane)plane.visible=false; localHealthBar.style.display='none'; keys={}; activeExplosions.forEach(exp=>scene.remove(exp)); activeExplosions=[]; bullets.forEach(b=>scene.remove(b.mesh)); bullets=[]; rockets.forEach(r=>removeRocket(r)); rockets=[]; if(crosshairElement) crosshairElement.style.display='none'; if(horizonContainerElement) horizonContainerElement.style.display='none'; if(deathMessageElement) deathMessageElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='none'; /* NOWE: Ukryj HUD */ }; socket.onerror=(e)=>{console.error("Błąd WS:",e); scoreDiv.innerText="Błąd połączenia. Odśwież."; gameStarted=false;};}
-        function sendWebSocketMessage(data){ if(isConnected&&socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify(data));}else{console.warn("WS nie jest otwarty.");}}
-        function handleServerMessage(message){ switch(message.type){ case 'your_id': localPlayerId=message.id; console.log("ID:",localPlayerId); sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType}); setupLocalPlane(); break; case 'game_state': console.log("Stan gry"); const cP=Object.keys(message.state||{}); Object.keys(opponentPlanes).forEach(oId=>{if(oId!=localPlayerId&&!cP.includes(String(oId))){removeOpponent(oId);}}); for(const pId in message.state){ const pD=message.state[pId]; if(pId==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pId,pD);}} break; case 'player_joined': console.log("Dołączył:",message.player.id,"Typ:",message.player.planeType); if(message.player.id!=localPlayerId){handleOpponentUpdate(message.player.id,message.player);} break; case 'player_update': const pD=message.player; if(pD.id==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pD.id,pD);} break; case 'player_left': console.log("Opuścił:",message.id); removeOpponent(message.id); break; case 'player_killed': console.log(`Kill: ${message.killerId} -> ${message.victimId}`); if(message.killerId === localPlayerId && message.victimId !== localPlayerId) { score += (message.weapon === 'rocket' ? 150 : 100); console.log(`Punkt za ${message.weapon === 'rocket' ? 'rakietę' : 'działka'}!`); } break; case 'bullet_hit': if (message.targetId === localPlayerId) { takeDamage(plane, message.damage, message.shooterId, 'bullet'); } break; case 'rocket_fired': if (message.ownerId !== localPlayerId) { console.log(`Gracz ${message.ownerId} wystrzelił rkt (${message.side})`); spawnOpponentRocket(message); } break; case 'rocket_hit': if (message.targetId === localPlayerId) { console.log(`Trafiony rkt przez ${message.shooterId}`); takeDamage(plane, message.damage, message.shooterId, 'rocket'); } else if (message.shooterId === localPlayerId) { console.log(`Potwierdzone trafienie rkt gracza ${message.targetId}`); } const hitRocket = rockets.find(r => r.id === message.rocketId && r.ownerId === message.shooterId); if (hitRocket) { console.log(`Usuwanie rkt ${message.rocketId}`); removeRocket(hitRocket); } break; default: console.warn("Nieznany typ:",message.type); } if(showRanking){updateRankingWebSocket();} }
+        // --- WebSocket ---
+        function connectWebSocket(){ console.log("Łączenie z WS..."); socket=new WebSocket(WEBSOCKET_URL); socket.onopen=()=>{console.log("WS Połączony!"); isConnected=true; scoreDiv.innerText="Połączono!"; if(localPlayerId){sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType});} setInterval(sendStateUpdateIfNeeded,STATE_SEND_INTERVAL);}; socket.onmessage=(e)=>{try{handleServerMessage(JSON.parse(e.data));}catch(err){console.error("Błąd parsowania:",err,e.data);}}; socket.onclose=(e)=>{console.log("WS Rozłączony.",e.reason); isConnected=false; gameStarted=false; localPlayerId=null; scoreDiv.innerText="Rozłączono. Odśwież."; Object.keys(opponentPlanes).forEach(removeOpponent); if(plane)plane.visible=false; localHealthBar.style.display='none'; keys={}; activeExplosions.forEach(exp=>scene.remove(exp)); activeExplosions=[]; bullets.forEach(b=>scene.remove(b.mesh)); bullets=[]; rockets.forEach(r=>removeRocket(r)); rockets=[]; if(crosshairElement) crosshairElement.style.display='none'; if(horizonContainerElement) horizonContainerElement.style.display='none'; if(deathMessageElement) deathMessageElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='none';}; socket.onerror=(e)=>{console.error("Błąd WS:",e); scoreDiv.innerText="Błąd połączenia. Odśwież."; gameStarted=false;};}
+        function sendWebSocketMessage(data){ if(isConnected&&socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify(data));}else{console.warn("WS nie otwarty.");}}
+        function handleServerMessage(message){ switch(message.type){ case 'your_id': localPlayerId=message.id; console.log("ID:",localPlayerId); sendWebSocketMessage({type:'select_plane',planeType:selectedPlaneType}); setupLocalPlane(); break; case 'game_state': console.log("Stan gry"); const cP=Object.keys(message.state||{}); Object.keys(opponentPlanes).forEach(oId=>{if(oId!=localPlayerId&&!cP.includes(String(oId))){removeOpponent(oId);}}); for(const pId in message.state){ const pD=message.state[pId]; if(pId==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pId,pD);}} break; case 'player_joined': console.log("Dołączył:",message.player.id,"Typ:",message.player.planeType); if(message.player.id!=localPlayerId){handleOpponentUpdate(message.player.id,message.player);} break; case 'player_update': const pD=message.player; if(pD.id==localPlayerId){updateLocalPlayerFromServer(pD);}else{handleOpponentUpdate(pD.id,pD);} break; case 'player_left': console.log("Opuścił:",message.id); removeOpponent(message.id); break; case 'player_killed': console.log(`Kill: ${message.killerId} -> ${message.victimId}`); if(message.killerId === localPlayerId && message.victimId !== localPlayerId) { score += (message.weapon === 'rocket' ? 150 : 100); console.log(`Punkt za ${message.weapon === 'rocket' ? 'rkt' : 'działka'}!`); } break; case 'bullet_hit': if (message.targetId === localPlayerId) { takeDamage(plane, message.damage, message.shooterId, 'bullet'); } break; case 'rocket_fired': if (message.ownerId !== localPlayerId) { console.log(`Gracz ${message.ownerId} wystrzelił rkt (${message.side})`); spawnOpponentRocket(message); } break; case 'rocket_hit': if (message.targetId === localPlayerId) { console.log(`Trafiony rkt przez ${message.shooterId}`); takeDamage(plane, message.damage, message.shooterId, 'rocket'); } else if (message.shooterId === localPlayerId) { console.log(`Potwierdzone trafienie rkt ${message.targetId}`); } const hR = rockets.find(r => r.id === message.rocketId && r.ownerId === message.shooterId); if (hR) { console.log(`Usuwanie rkt ${message.rocketId}`); removeRocket(hR); } break; default: console.warn("Nieznany typ:",message.type); } if(showRanking){updateRankingWebSocket();} }
         function setupLocalPlane(){ if(!plane||localPlayerId===null)return; plane.userData.id=localPlayerId; plane.userData.maxHealth=MAX_HEALTH; plane.userData.collisionRadius=5; plane.userData.planeType=selectedPlaneType; console.log(`Lokalny samolot (${localPlayerId}) jako: ${selectedPlaneType}`);}
-        // ZAKTUALIZOWANA: Pokaż/ukryj HUD Info
-        function updateLocalPlayerFromServer(serverData){ if(!plane||localPlayerId===null)return; const wasAlive=plane.userData.isAlive; const isNowAlive=serverData.isAlive; plane.userData.health=serverData.health; plane.userData.kills=serverData.kills; plane.userData.isAlive=isNowAlive; if((isNowAlive&&!wasAlive)||!plane.visible){ console.log("Ustawianie pozycji/rotacji z serwera:",serverData.x,serverData.y,serverData.z); if(serverData.x!==undefined)plane.position.x=serverData.x; if(serverData.y!==undefined)plane.position.y=serverData.y; if(serverData.z!==undefined)plane.position.z=serverData.z; const initialRotation=new THREE.Euler(serverData.rotX||0,serverData.rotY||0,serverData.rotZ||0,'YXZ'); plane.setRotationFromEuler(initialRotation); plane.quaternion.setFromEuler(initialRotation); } if(isNowAlive){ plane.visible=true; localHealthBar.style.display='block'; if(crosshairElement) crosshairElement.style.display='block'; if(horizonContainerElement) horizonContainerElement.style.display='block'; if(deathMessageElement) deathMessageElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='block'; /* NOWE: Pokaż HUD */ if(!wasAlive){ console.log("Lokalny gracz odrodzony."); keys={}; isBoosting = false; /* Resetuj boost */ boostCooldownEndTime = 0; /* Resetuj cooldown */ touchPitchInput=0; touchRollInput=0; } updateHealthBar(plane,localHealthFill); positionHealthBar(plane,localHealthBar); }else if(wasAlive){ console.log("Lokalny gracz zginął wg serwera."); handlePlayerDeath(plane, serverData.killerId || 'Serwer', serverData.weapon || 'unknown'); }}
-        function sendStateUpdateIfNeeded(){ if(!isConnected||!plane||!plane.userData.isAlive||!plane.visible||localPlayerId===null)return; const currentState={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotX:parseFloat(plane.rotation.x.toFixed(3)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3))}; if(JSON.stringify(currentState)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:currentState});lastSentState=currentState;}}
+        function updateLocalPlayerFromServer(serverData){ if(!plane||localPlayerId===null)return; const wasAlive=plane.userData.isAlive; const isNowAlive=serverData.isAlive; plane.userData.health=serverData.health; plane.userData.kills=serverData.kills; plane.userData.isAlive=isNowAlive; if((isNowAlive&&!wasAlive)||!plane.visible){ console.log("Ustawianie poz/rot z serwera:",serverData.x,serverData.y,serverData.z); if(serverData.x!==undefined)plane.position.x=serverData.x; if(serverData.y!==undefined)plane.position.y=serverData.y; if(serverData.z!==undefined)plane.position.z=serverData.z; const iR=new THREE.Euler(serverData.rotX||0,serverData.rotY||0,serverData.rotZ||0,'YXZ'); plane.setRotationFromEuler(iR); plane.quaternion.setFromEuler(iR); } if(isNowAlive){ plane.visible=true; localHealthBar.style.display='block'; if(crosshairElement) crosshairElement.style.display='block'; if(horizonContainerElement) horizonContainerElement.style.display='block'; if(deathMessageElement) deathMessageElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='block'; if(!wasAlive){ console.log("Lokalny gracz odrodzony."); keys={}; isBoosting = false; boostCooldownEndTime = 0; touchPitchInput=0; touchRollInput=0; } updateHealthBar(plane,localHealthFill); positionHealthBar(plane,localHealthBar); }else if(wasAlive){ console.log("Lokalny gracz zginął wg serwera."); handlePlayerDeath(plane, serverData.killerId || 'Serwer', serverData.weapon || 'unknown'); }}
+        function sendStateUpdateIfNeeded(){ if(!isConnected||!plane||!plane.userData.isAlive||!plane.visible||localPlayerId===null)return; const cS={x:parseFloat(plane.position.x.toFixed(2)),y:parseFloat(plane.position.y.toFixed(2)),z:parseFloat(plane.position.z.toFixed(2)),rotX:parseFloat(plane.rotation.x.toFixed(3)),rotY:parseFloat(plane.rotation.y.toFixed(3)),rotZ:parseFloat(plane.rotation.z.toFixed(3))}; if(JSON.stringify(cS)!==JSON.stringify(lastSentState)){sendWebSocketMessage({type:'update_state',state:cS});lastSentState=cS;}}
 
-        // --- Pętla Główna Gry --- ZAKTUALIZOWANA
+        // --- Pętla Główna Gry ---
         function animate(time) {
              if (!gameStarted) return;
             requestAnimationFrame(animate);
             const deltaTime = Math.min(clock.getDelta(), 0.1);
-            const now = Date.now(); // Pobierz aktualny czas raz na klatkę
+            const now = Date.now();
 
             if (plane && plane.userData.isAlive && plane.visible) {
-                // --- Sterowanie ---
                 let pitchDelta=0, rollDelta=0, yawDelta=0;
                 if(keys['arrowup']||keys['w']) pitchDelta += PITCH_SPEED * deltaTime; if(keys['arrowdown']||keys['s']) pitchDelta -= PITCH_SPEED * deltaTime;
                 if(keys['arrowleft']||keys['a']) rollDelta -= ROLL_SPEED * deltaTime; if(keys['arrowright']||keys['d']) rollDelta += ROLL_SPEED * deltaTime;
@@ -219,69 +184,31 @@
                 if(hasTouch){ if(touchPitchInput!==0){ pitchDelta += touchPitchInput * PITCH_SPEED * deltaTime; } if(touchRollInput!==0){ rollDelta += touchRollInput * ROLL_SPEED * deltaTime * 1.5; } }
                 if(Math.abs(pitchDelta)>0.001)plane.rotateX(pitchDelta); if(Math.abs(rollDelta)>0.001)plane.rotateZ(rollDelta); if(Math.abs(yawDelta)>0.001)plane.rotateY(yawDelta);
 
-                // --- Ruch i Boost ---
                 const forwardDir=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
-                let baseForwardSpeed = FORWARD_SPEED; // Zacznij od bazowej prędkości
-
-                // Sprawdź, czy boost powinien się zakończyć
-                if (isBoosting && now >= boostEndTime) {
-                    isBoosting = false;
-                    console.log("Boost zakończony.");
-                }
-
-                // Zastosuj efekt ziemi
-                let groundFactor = 1.0;
-                 if(plane.position.y < GROUND_EFFECT_ALTITUDE){
-                    groundFactor = Math.max(0.1, plane.position.y / GROUND_EFFECT_ALTITUDE); // Nie pozwól na zerową prędkość
-                    baseForwardSpeed *= groundFactor;
-                 }
-
-                // Zastosuj mnożnik boostu, jeśli aktywny
-                let currentForwardSpeed = baseForwardSpeed;
-                let currentPropellerFactor = groundFactor; // Zacznij od mnożnika efektu ziemi dla śmigła
-                if (isBoosting) {
-                    currentForwardSpeed *= BOOST_MULTIPLIER;
-                    currentPropellerFactor *= BOOST_MULTIPLIER * 1.2; // Trochę większy boost dla śmigła wizualnie
-                    //console.log("BOOST ACTIVE - Speed:", currentForwardSpeed.toFixed(1));
-                }
-
-                // Aktualizuj prędkość śmigła
+                let baseForwardSpeed = FORWARD_SPEED;
+                if (isBoosting && now >= boostEndTime) { isBoosting = false; console.log("Boost off."); }
+                let groundFactor = 1.0; if(plane.position.y < GROUND_EFFECT_ALTITUDE){ groundFactor = Math.max(0.1, plane.position.y / GROUND_EFFECT_ALTITUDE); baseForwardSpeed *= groundFactor; }
+                let currentForwardSpeed = baseForwardSpeed; let currentPropellerFactor = groundFactor;
+                if (isBoosting) { currentForwardSpeed *= BOOST_MULTIPLIER; currentPropellerFactor *= BOOST_MULTIPLIER * 1.2; }
                 currentPropellerSpeedMultiplier = BASE_PROPELLER_SPEED_MULTIPLIER * currentPropellerFactor;
-                if (plane.userData.propeller) {
-                    plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime;
-                }
+                if (plane.userData.propeller) { plane.userData.propeller.rotation.z += currentPropellerSpeedMultiplier * deltaTime; }
+                const forwardMove=currentForwardSpeed*deltaTime; plane.position.add(forwardDir.clone().multiplyScalar(forwardMove));
+                if (plane.position.y < MIN_GROUND_ALTITUDE && plane.userData.isAlive) { takeDamage(plane, MAX_HEALTH * 2, 'Ground', 'crash'); }
 
-                // Przesuń samolot
-                const forwardMove=currentForwardSpeed*deltaTime;
-                plane.position.add(forwardDir.clone().multiplyScalar(forwardMove));
-
-                // Kolizja z ziemią
-                if (plane.position.y < MIN_GROUND_ALTITUDE && plane.userData.isAlive) {
-                    takeDamage(plane, MAX_HEALTH * 2, 'Ground', 'crash');
-                }
-
-                // --- Kolizje i UI ---
-                checkCollisions(plane); checkPlayerCollisions(plane);
-                positionHealthBar(plane, localHealthBar);
+                checkCollisions(plane); checkPlayerCollisions(plane); positionHealthBar(plane, localHealthBar);
                 if (horizonIndicatorElement) { const rollAngleDegrees = -plane.rotation.z * (180 / Math.PI); horizonIndicatorElement.style.transform = `translateY(0%) rotate(${rollAngleDegrees}deg)`; }
                 if (crosshairElement && camera) { const aimDir=new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion); crosshairTarget.copy(plane.position).add(aimDir.multiplyScalar(CROSSHAIR_DISTANCE)); const projPt=crosshairTarget.clone().project(camera); if(projPt.z<1){screenPosition.x=(projPt.x*0.5+0.5)*renderer.domElement.clientWidth; screenPosition.y=(-projPt.y*0.5+0.5)*renderer.domElement.clientHeight; crosshairElement.style.left=`${screenPosition.x}px`; crosshairElement.style.top=`${screenPosition.y}px`; crosshairElement.style.display='block';}else{crosshairElement.style.display='none';}}
-
-                // --- NOWE: Aktualizacja HUD Info ---
-                if (hudInfoElement && altitudeElement && speedElement) {
-                    altitudeElement.textContent = `Wys: ${plane.position.y.toFixed(0)} m n.p.m.`;
-                    // Przelicz prędkość z jednostek/s na km/h (jednostka * 3.6)
-                    const speedKmh = currentForwardSpeed * 3.6;
-                    speedElement.textContent = `Prędkość: ${speedKmh.toFixed(0)} km/h`;
-                }
+                if (hudInfoElement && altitudeElement && speedElement) { altitudeElement.textContent = `Wys: ${plane.position.y.toFixed(0)} m n.p.m.`; const speedKmh = currentForwardSpeed * 3.6; speedElement.textContent = `Prędkość: ${speedKmh.toFixed(0)} km/h`; }
             }
 
-            // --- Aktualizacje globalne ---
             updateTiles(deltaTime); updateBullets(deltaTime); updateRockets(deltaTime); updateOpponentPlanes(deltaTime);
             updateExplosions(deltaTime); updateCamera(); renderer.render(scene, camera);
             updateMinimap(); updateScoreboard();
         }
 
         // --- Funkcje Tworzące Elementy Sceny ---
+        function createSun() { const sunG=new THREE.SphereGeometry(300, 32, 32); const sunM=new THREE.MeshBasicMaterial({ color: 0xffddaa, fog: false }); sunMesh=new THREE.Mesh(sunG, sunM); sunMesh.position.set(0, 5000, -10000); scene.add(sunMesh); let eL=scene.children.find(c=>c instanceof THREE.DirectionalLight); if(eL){sunLight=eL;console.log("Używam istniejącego DirectionalLight.");}else{console.log("Tworzę nowe DirectionalLight.");sunLight=new THREE.DirectionalLight(0xffffff, 0.8);scene.add(sunLight);} sunLight.position.copy(sunMesh.position); sunLight.target.position.set(0, 0, 0); scene.add(sunLight.target); }
+        function createClouds() { console.log("Tworzenie chmur..."); const cloudMat=new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: CLOUD_OPACITY, roughness: 0.9, fog: false }); const halfT=TILE_SIZE/2*0.95; for (let i=0; i<CLOUD_COUNT; i++) { const sX=THREE.MathUtils.randFloat(CLOUD_SIZE_MIN, CLOUD_SIZE_MAX); const sZ=THREE.MathUtils.randFloat(CLOUD_SIZE_MIN, CLOUD_SIZE_MAX); const cloudGeo=new THREE.BoxGeometry(sX, CLOUD_THICKNESS, sZ); const cloud=new THREE.Mesh(cloudGeo, cloudMat); const pX=THREE.MathUtils.randFloat(-halfT, halfT); const pY=THREE.MathUtils.randFloat(CLOUD_ALTITUDE_MIN, CLOUD_ALTITUDE_MAX); const pZ=THREE.MathUtils.randFloat(-halfT, halfT); cloud.position.set(pX, pY, pZ); cloud.rotation.y = Math.random() * Math.PI * 2; cloud.userData.isCloud = true; scene.add(cloud); clouds.push(cloud); } console.log(`Stworzono ${clouds.length} chmur.`); }
         function createTiles(){ const wc=0x003366, lc=0x228B22; for(let x=-2; x<=2; x++) for(let z=-2; z<=2; z++){ const iC=(x===0&&z===0); const c=iC?lc:wc; const m=new THREE.MeshStandardMaterial({color:c, roughness:iC?0.8:0.6, metalness:0.1}); const t=new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE,TILE_SIZE),m); t.rotation.x=-Math.PI/2; t.userData.gridX=x; t.userData.gridZ=z; t.userData.isCenter=iC; scene.add(t); tiles.push(t);}}
         function createBuildings(){ const m=new THREE.MeshStandardMaterial({color:0x555555,roughness:0.7,metalness:0.3}); for(let i=0; i<150; i++){ const w=Math.random()*15+10, d=Math.random()*15+10, h=Math.random()*120+50; const g=new THREE.BoxGeometry(w,h,d), b=new THREE.Mesh(g,m); b.position.set((Math.random()-0.5)*(TILE_SIZE*0.9),h/2,(Math.random()-0.5)*(TILE_SIZE*0.9)); b.userData.radius=Math.max(w,d)/2*1.1; b.userData.health=3; buildings.push(b); scene.add(b);}}
         function createCarriers(){ const g=new THREE.BoxGeometry(80,20,500), m=new THREE.MeshStandardMaterial({color:0x444455, roughness:0.8}); const p=[{x:0,z:-CARRIER_DISTANCE,r:0},{x:CARRIER_DISTANCE,z:0,r:Math.PI/2},{x:0,z:CARRIER_DISTANCE,r:0},{x:-CARRIER_DISTANCE,z:0,r:Math.PI/2}]; p.forEach(pos=>{ const c=new THREE.Mesh(g,m); c.position.set(pos.x,10,pos.z); c.rotation.y=pos.r; c.userData.radius=250; c.userData.isCarrier=true; c.userData.health=Infinity; carriers.push(c); scene.add(c);});}
@@ -296,7 +223,7 @@
         function updateBullets(deltaTime){ if(!gameStarted)return; const rSq=6000*6000; for(let i=bullets.length-1; i>=0; i--){ const b=bullets[i]; if(!b || !b.mesh || !b.mesh.parent){ bullets.splice(i,1); continue; } b.life += deltaTime; if(b.life > BULLET_LIFETIME){ scene.remove(b.mesh); bullets.splice(i,1); continue; } b.mesh.position.add(b.velocity.clone().multiplyScalar(deltaTime)); let hit=false; for(const bd of buildings){ if(!bd.parent)continue; if(b.mesh.position.distanceToSquared(bd.position)<(bd.userData.radius+0.25)**2){ bd.userData.health--; if(bd.userData.health<=0){ removeBuilding(bd); if(b.ownerId===localPlayerId)score+=25;} scene.remove(b.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue; for(const cr of carriers){ if(!cr.parent)continue; if(b.mesh.position.distanceToSquared(cr.position)<(cr.userData.radius+0.25)**2 && Math.abs(b.mesh.position.y-cr.position.y)<15){ scene.remove(b.mesh); bullets.splice(i,1); hit=true; break;}} if(hit)continue; if(b.ownerId===localPlayerId){ for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(b.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+0.25)**2){ console.log(`LP trafił opp ${oId} pociskiem!`); sendWebSocketMessage({type:'hit_player',targetId:parseInt(oId),damage:b.damage, shooterId: localPlayerId, weapon: 'bullet'}); scene.remove(b.mesh); bullets.splice(i,1); hit=true; break;}}} if(hit)continue; if(b.mesh.position.lengthSq()>rSq){ scene.remove(b.mesh); bullets.splice(i,1); } } }
         function updateRockets(deltaTime) { if(!gameStarted) return; for (let i=rockets.length-1; i>=0; i--) { const r=rockets[i]; if (!r || !r.mesh || !r.mesh.parent) { rockets.splice(i,1); continue; } r.life += deltaTime; r.mesh.position.add(r.velocity.clone().multiplyScalar(deltaTime)); r.mesh.lookAt(r.mesh.position.clone().add(r.velocity)); if (r.trailMesh && r.trailMesh.material) { const tLR=Math.min(r.life / ROCKET_TRAIL_FADE_TIME, 1.0); r.trailMesh.material.opacity = 1.0 - tLR; if (r.trailMesh.material.opacity <= 0) { scene.remove(r.trailMesh); r.trailMesh = null; } } if (r.life > ROCKET_LIFETIME) { removeRocket(r); continue; } let hit=false; const rRad=0.7; for(const b of buildings){ if(!b.parent)continue; if(r.mesh.position.distanceToSquared(b.position)<(b.userData.radius+rRad)**2){ console.log(`Rakieta ${r.id} w budynek`); createExplosion(r.mesh.position.clone(), 1.5); b.userData.health -= 2; if(b.userData.health<=0){ removeBuilding(b); if(r.ownerId===localPlayerId)score+=50;} removeRocket(r); hit=true; break;}} if(hit)continue; for(const c of carriers){ if(!c.parent)continue; if(r.mesh.position.distanceToSquared(c.position)<(c.userData.radius+rRad)**2 && Math.abs(r.mesh.position.y - c.position.y) < 25){ console.log(`Rakieta ${r.id} w lotniskowiec`); createExplosion(r.mesh.position.clone(), 1.5); removeRocket(r); hit=true; break;}} if(hit)continue; if(r.ownerId===localPlayerId){ for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive || !oD.plane.visible)continue; if(r.mesh.position.distanceToSquared(oD.plane.position)<(oD.plane.userData.collisionRadius+rRad)**2){ console.log(`LP trafił opp ${oId} rakietą ${r.id}!`); createExplosion(r.mesh.position.clone(), 1.2); sendWebSocketMessage({type:'hit_player', targetId:parseInt(oId), damage:r.damage, shooterId: localPlayerId, weapon: 'rocket', rocketId: r.id }); removeRocket(r); hit=true; break;}}} } }
         function updateCamera(){ if(!plane||!plane.parent||!gameStarted)return; const o=new THREE.Vector3(0,CAMERA_HEIGHT,-CAMERA_DISTANCE); const cTP=o.applyMatrix4(plane.matrixWorld); camera.position.lerp(cTP,0.1); const lAT=new THREE.Vector3(0,0,10).applyMatrix4(plane.matrixWorld); camera.lookAt(lAT);}
-        function updateMinimap(){ if(!minimapCtx||!plane||!plane.parent||!gameStarted) return; minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.scale(MAP_SCALE,MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x,-plane.position.z); tiles.forEach(t=>{const c=t.userData.gridX===0&&t.userData.gridZ===0?'rgb(34,136,34)':'rgb(0,51,102)'; minimapCtx.fillStyle=c; minimapCtx.fillRect(t.position.x-TILE_SIZE/2, t.position.z-TILE_SIZE/2, TILE_SIZE, TILE_SIZE);}); minimapCtx.fillStyle='grey'; buildings.forEach(b=>{if(!b.parent)return; const w=b.geometry.parameters.width*1.5, d=b.geometry.parameters.depth*1.5; minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);}); minimapCtx.fillStyle='darkgrey'; carriers.forEach(c=>{if(!c.parent)return; minimapCtx.save(); minimapCtx.translate(c.position.x,c.position.z); minimapCtx.rotate(c.rotation.y); const w=c.geometry.parameters.width, d=c.geometry.parameters.depth; minimapCtx.fillRect(-w/2,-d/2,w,d); minimapCtx.restore();}); minimapCtx.fillStyle='blue'; for (const id in opponentPlanes){const o=opponentPlanes[id]; if(o&&o.plane&&o.plane.userData.isAlive){minimapCtx.beginPath(); minimapCtx.arc(o.plane.position.x,o.plane.position.z,150,0,Math.PI*2); minimapCtx.fill();}} minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.fillStyle='red'; minimapCtx.beginPath(); minimapCtx.moveTo(0,-6); minimapCtx.lineTo(-4,6); minimapCtx.lineTo(4,6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
+        function updateMinimap(){ if(!minimapCtx||!plane||!plane.parent||!gameStarted) return; minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,MINIMAP_SIZE,MINIMAP_SIZE); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.scale(MAP_SCALE,MAP_SCALE); minimapCtx.rotate(-plane.rotation.y); minimapCtx.translate(-plane.position.x,-plane.position.z); tiles.forEach(t=>{const c=t.userData.isCenter?'rgb(34,136,34)':'rgb(0,51,102)'; minimapCtx.fillStyle=c; minimapCtx.fillRect(t.position.x-TILE_SIZE/2, t.position.z-TILE_SIZE/2, TILE_SIZE, TILE_SIZE);}); minimapCtx.fillStyle='grey'; buildings.forEach(b=>{if(!b.parent)return; const w=b.geometry.parameters.width*1.5, d=b.geometry.parameters.depth*1.5; minimapCtx.fillRect(b.position.x-w/2,b.position.z-d/2,w,d);}); minimapCtx.fillStyle='darkgrey'; carriers.forEach(c=>{if(!c.parent)return; minimapCtx.save(); minimapCtx.translate(c.position.x,c.position.z); minimapCtx.rotate(c.rotation.y); const w=c.geometry.parameters.width, d=c.geometry.parameters.depth; minimapCtx.fillRect(-w/2,-d/2,w,d); minimapCtx.restore();}); minimapCtx.fillStyle='blue'; for (const id in opponentPlanes){const o=opponentPlanes[id]; if(o&&o.plane&&o.plane.userData.isAlive){minimapCtx.beginPath(); minimapCtx.arc(o.plane.position.x,o.plane.position.z,150,0,Math.PI*2); minimapCtx.fill();}} minimapCtx.restore(); minimapCtx.save(); minimapCtx.translate(MINIMAP_SIZE/2,MINIMAP_SIZE/2); minimapCtx.fillStyle='red'; minimapCtx.beginPath(); minimapCtx.moveTo(0,-6); minimapCtx.lineTo(-4,6); minimapCtx.lineTo(4,6); minimapCtx.closePath(); minimapCtx.fill(); minimapCtx.restore(); }
         function updateScoreboard(){ if (!plane||localPlayerId===null||plane.userData.kills===undefined||!gameStarted) return; scoreDiv.innerText=`Kills: ${plane.userData.kills} / Score: ${score}`; }
         function updateRankingWebSocket(){ rankingList.innerHTML=''; const pD=[]; if(plane&&localPlayerId!==null&&plane.userData.kills!==undefined&&gameStarted){pD.push({id:localPlayerId,kills:plane.userData.kills,name:`Ty (${plane.userData.planeType||'?'})`});} for(const pI in opponentPlanes){const oD=opponentPlanes[pI]; if(oD&&oD.plane&&oD.plane.userData.kills!==undefined){const n=`Gracz ${String(pI).substr(-4)} (${oD.planeType||'?'})`; pD.push({id:pI,kills:oD.plane.userData.kills,name:n});}} pD.sort((a,b)=>b.kills-a.kills); pD.forEach(p=>{const li=document.createElement('li'),nS=document.createElement('span'),kS=document.createElement('span'); nS.textContent=p.name; kS.textContent=p.kills; if(p.id==localPlayerId)li.style.color='yellow'; li.appendChild(nS); li.appendChild(kS); rankingList.appendChild(li);});}
 
@@ -309,7 +236,7 @@
         function checkPlayerCollisions(localPlane){ if(!localPlane||!localPlane.userData.isAlive||!localPlane.visible)return; const lR=localPlane.userData.collisionRadius; for(const oId in opponentPlanes){ const oD=opponentPlanes[oId]; if(!oD||!oD.plane||!oD.plane.userData.isAlive||!oD.plane.visible)continue; const oP=oD.plane; const oR=oP.userData.collisionRadius; const cR=lR+oR; const dSq=localPlane.position.distanceToSquared(oP.position); if(dSq<cR*cR){ takeDamage(localPlane,MAX_HEALTH*2,`Collision with ${oId}`, 'collision'); sendWebSocketMessage({type:'player_collision', otherPlayerId: parseInt(oId)}); break;}}}
         function removeBuilding(b){ scene.remove(b); const i=buildings.indexOf(b); if(i>-1) buildings.splice(i,1); }
         function takeDamage(targetPlane, amount, killerIdOrReason, weaponType = 'unknown'){ if (!targetPlane||!targetPlane.userData.isAlive||!targetPlane.visible)return; const pH=targetPlane.userData.health; targetPlane.userData.health=Math.max(0,targetPlane.userData.health-amount); console.log(`Gracz ${targetPlane.userData.id} ${amount} obr. od ${killerIdOrReason} [${weaponType}]. HP: ${targetPlane.userData.health}`); if(targetPlane.userData.health<=0&&pH>0){ if(targetPlane===plane && targetPlane.userData.id === localPlayerId){ handlePlayerDeath(targetPlane, killerIdOrReason, weaponType); let kId=null; if(typeof killerIdOrReason==='number'||(typeof killerIdOrReason==='string'&&!isNaN(parseInt(killerIdOrReason)))){kId=parseInt(killerIdOrReason);}else if(typeof killerIdOrReason==='string'&&killerIdOrReason.startsWith('Collision with ')){kId=parseInt(killerIdOrReason.split(' ')[2]);} sendWebSocketMessage({type:'i_died', killerId:kId, weapon: weaponType}); } else { handleOpponentDeathVisuals(targetPlane); } } if(targetPlane === plane){updateHealthBar(plane,localHealthFill);} }
-        function handlePlayerDeath(deadPlane, reason, weaponType){ if(!deadPlane.userData.isAlive && !deadPlane.visible) return; console.log(`Lokalna śmierć: ${deadPlane.userData.id}, Przyczyna: ${reason}, Broń: ${weaponType}`); deadPlane.userData.isAlive=false; deadPlane.visible=false; localHealthBar.style.display='none'; if(crosshairElement) crosshairElement.style.display='none'; if(horizonContainerElement) horizonContainerElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='none'; /* NOWE: Ukryj HUD */ keys={}; isBoosting = false; /* Resetuj boost */ touchPitchInput=0; touchRollInput=0; if (deathMessageElement) { let msg="Zginąłeś!"; if (weaponType === 'crash' || reason === 'Ground' || reason === 'Building' || reason === 'Carrier') { msg = "Rozbiłeś się!"; } else if (typeof reason === 'number' || (typeof reason === 'string' && reason.startsWith('Collision with')) || weaponType === 'bullet' || weaponType === 'rocket' || weaponType === 'collision') { msg = "Zostałeś zestrzelony!"; } deathMessageElement.textContent = msg; deathMessageElement.style.display = 'block'; } }
+        function handlePlayerDeath(deadPlane, reason, weaponType){ if(!deadPlane.userData.isAlive && !deadPlane.visible) return; console.log(`Lokalna śmierć: ${deadPlane.userData.id}, Przyczyna: ${reason}, Broń: ${weaponType}`); deadPlane.userData.isAlive=false; deadPlane.visible=false; localHealthBar.style.display='none'; if(crosshairElement) crosshairElement.style.display='none'; if(horizonContainerElement) horizonContainerElement.style.display='none'; if(hudInfoElement) hudInfoElement.style.display='none'; keys={}; isBoosting = false; touchPitchInput=0; touchRollInput=0; if (deathMessageElement) { let msg="Zginąłeś!"; if (weaponType === 'crash' || reason === 'Ground' || reason === 'Building' || reason === 'Carrier') { msg = "Rozbiłeś się!"; } else if (typeof reason === 'number' || (typeof reason === 'string' && reason.startsWith('Collision with')) || weaponType === 'bullet' || weaponType === 'rocket' || weaponType === 'collision') { msg = "Zostałeś zestrzelony!"; } deathMessageElement.textContent = msg; deathMessageElement.style.display = 'block'; } }
         function handleOpponentDeathVisuals(deadOpponentPlane){ console.log(`Wizualna śmierć ${deadOpponentPlane.userData.id}`); deadOpponentPlane.visible=false; const oD=opponentPlanes[deadOpponentPlane.userData.id]; if(oD&&oD.healthBar){oD.healthBar.style.display='none';}}
 
         // --- Obsługa Sieciowa (Przeciwnicy) ---
@@ -321,35 +248,9 @@
         function updateHealthBar(t,f){ if(!t||!f||t.userData.health===undefined||t.userData.maxHealth===undefined)return; const p=(t.userData.health/t.userData.maxHealth)*100; f.style.width=`${Math.max(0,p)}%`; if(p>60)f.style.backgroundColor='limegreen'; else if(p>30)f.style.backgroundColor='gold'; else f.style.backgroundColor='red';}
         function positionHealthBar(t,b){ if (!t||!t.parent||!t.visible||!b||!camera){if(b)b.style.display='none'; return;} const v=new THREE.Vector3(); v.copy(t.position).y+=4; v.project(camera); if(v.z>1||v.z<-1){b.style.display='none'; return;} const x=(v.x*0.5+0.5)*renderer.domElement.clientWidth, y=(-v.y*0.5+0.5)*renderer.domElement.clientHeight; b.style.left=`${x}px`; b.style.top=`${y-10}px`; b.style.display='block';}
 
-        // --- Event Listeners --- ZAKTUALIZOWANE (Enter dla boost)
+        // --- Event Listeners ---
         function onWindowResize(){ if(camera&&renderer){camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);} if(popupCamera&&popupRenderer&&planePresentationCanvas){const a=planePresentationCanvas.clientWidth/planePresentationCanvas.clientHeight; popupCamera.aspect=a; popupCamera.updateProjectionMatrix(); popupRenderer.setSize(planePresentationCanvas.clientWidth,planePresentationCanvas.clientHeight);}}
-        function onKeyDown(e){
-            if(!gameStarted || !plane || !plane.userData.isAlive)return;
-            const key = e.key.toLowerCase();
-            keys[key]=true;
-
-            if(key===' ' && !e.repeat) { fireGuns(); }
-            else if (e.key === 'Shift' && !e.repeat) { // Używamy e.key dla Shift, bo to nie litera
-                if (e.location === 1) { fireRocket('left'); }
-                else if (e.location === 2) { fireRocket('right'); }
-                else { console.log("Shift bez lokalizacji."); }
-            }
-            else if (key === 'enter' && !e.repeat) { // BOOST
-                const now = Date.now();
-                if (!isBoosting && now > boostCooldownEndTime) {
-                    console.log("BOOST!");
-                    isBoosting = true;
-                    boostEndTime = now + BOOST_DURATION;
-                    boostCooldownEndTime = now + BOOST_COOLDOWN;
-                    // TODO: Dźwięk/efekt wizualny boostu?
-                } else if (isBoosting) {
-                    console.log("Boost aktywny.");
-                } else {
-                     console.log("Boost na cooldownie.");
-                }
-            }
-            else if(key==='tab'){ e.preventDefault(); showRanking=true; updateRankingWebSocket(); rankingDiv.style.display='block'; }
-        }
+        function onKeyDown(e){ if(!gameStarted || !plane || !plane.userData.isAlive)return; const key = e.key.toLowerCase(); keys[key]=true; if(key===' ' && !e.repeat) { fireGuns(); } else if (e.key === 'Shift' && !e.repeat) { if (e.location === 1) { fireRocket('left'); } else if (e.location === 2) { fireRocket('right'); } else { console.log("Shift bez lokalizacji."); } } else if (key === 'enter' && !e.repeat) { const now = Date.now(); if (!isBoosting && now > boostCooldownEndTime) { console.log("BOOST!"); isBoosting = true; boostEndTime = now + BOOST_DURATION; boostCooldownEndTime = now + BOOST_COOLDOWN; } else if (isBoosting) { console.log("Boost aktywny."); } else { console.log("Boost na cooldownie."); } } else if(key==='tab'){ e.preventDefault(); showRanking=true; updateRankingWebSocket(); rankingDiv.style.display='block'; } }
         function onKeyUp(e){ if(!gameStarted)return; const key=e.key.toLowerCase(); keys[key]=false; if(key==='tab'){showRanking=false; rankingDiv.style.display='none';}}
         function onTouchStart(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0){ const t=e.touches[0]; touchStartX=t.clientX; touchStartY=t.clientY; const sH=window.innerHeight; if(touchStartY<sH*0.4){touchPitchInput=1;}else if(touchStartY>sH*0.6){touchPitchInput=-1;}else{touchPitchInput=0;} touchRollInput=0;}}
         function onTouchMove(e){ if(!gameStarted||e.target.id==='fireButton'||e.target.closest('#planeSelectionPopup'))return; e.preventDefault(); if(e.touches.length>0&&touchStartX!==null&&touchStartY!==null){ const t=e.touches[0]; const cX=t.clientX; const cY=t.clientY; const dX=cX-touchStartX; touchRollInput=Math.max(-1,Math.min(1,dX/(window.innerWidth*0.2))); const sH=window.innerHeight; if(cY<sH*0.4){touchPitchInput=1;}else if(cY>sH*0.6){touchPitchInput=-1;}else{touchPitchInput=0;}}}
